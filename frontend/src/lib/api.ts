@@ -1,0 +1,213 @@
+/**
+ * FastAPI Client
+ * Utilities for communicating with the Python backend.
+ */
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+// Types
+export interface SearchResult {
+  title: string
+  description: string
+  link: string
+  pubDate: string
+  category: 'SHOPPERS' | 'RECALL'
+  subcategory?: string
+  score: number
+  feedIndex: number
+}
+
+export interface SearchResponse {
+  items: SearchResult[]
+  recall_items: SearchResult[]
+  processed_count: number
+  total_ranked_count: number
+  shoppers_count: number
+  recall_count: number
+  timestamp: string
+}
+
+export interface GenerationConfig {
+  batch_size: number
+  search_days_back: number
+  model: string
+  use_placeholder_images: boolean
+  use_legacy_orchestrator: boolean
+}
+
+export interface GenerationResponse {
+  job_id: string
+  status: string
+  message: string
+  config: GenerationConfig
+}
+
+export interface SystemStats {
+  jobs: {
+    total: number
+    running: number
+    completed: number
+    failed: number
+  }
+  posts: {
+    total: number
+    draft: number
+    reviewed: number
+    published: number
+    by_category: {
+      shoppers: number
+      recall: number
+    }
+  }
+  timestamp: string
+  error?: string
+}
+
+// API Client class
+class ApiClient {
+  private baseUrl: string
+
+  constructor(baseUrl: string = API_BASE_URL) {
+    this.baseUrl = baseUrl
+  }
+
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`
+    
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
+      throw new Error(error.detail || `HTTP ${response.status}`)
+    }
+
+    return response.json()
+  }
+
+  // Health check
+  async healthCheck(): Promise<{ status: string; timestamp: string }> {
+    return this.request('/api/health')
+  }
+
+  // Stats
+  async getStats(): Promise<SystemStats> {
+    return this.request('/api/stats')
+  }
+
+  // Search
+  async previewSearch(params: {
+    batch_size?: number
+    days_back?: number
+    category?: string
+  } = {}): Promise<SearchResponse> {
+    const queryParams = new URLSearchParams()
+    if (params.batch_size) queryParams.set('batch_size', String(params.batch_size))
+    if (params.days_back) queryParams.set('days_back', String(params.days_back))
+    if (params.category) queryParams.set('category', params.category)
+
+    const query = queryParams.toString()
+    return this.request(`/api/search/preview${query ? `?${query}` : ''}`)
+  }
+
+  async testSearchQuery(query: string, numResults = 5): Promise<any> {
+    const params = new URLSearchParams({ query, num_results: String(numResults) })
+    return this.request(`/api/search/test-query?${params}`, { method: 'POST' })
+  }
+
+  // Generation
+  async startGeneration(config: Partial<GenerationConfig> = {}): Promise<GenerationResponse> {
+    return this.request('/api/generate/run', {
+      method: 'POST',
+      body: JSON.stringify({
+        batch_size: config.batch_size ?? 10,
+        search_days_back: config.search_days_back ?? 30,
+        model: config.model ?? 'gpt-4',
+        use_placeholder_images: config.use_placeholder_images ?? false,
+        use_legacy_orchestrator: config.use_legacy_orchestrator ?? false,
+      }),
+    })
+  }
+
+  async getPosts(params: {
+    status?: string
+    category?: string
+    limit?: number
+    offset?: number
+  } = {}): Promise<any[]> {
+    const queryParams = new URLSearchParams()
+    if (params.status) queryParams.set('status', params.status)
+    if (params.category) queryParams.set('category', params.category)
+    if (params.limit) queryParams.set('limit', String(params.limit))
+    if (params.offset) queryParams.set('offset', String(params.offset))
+
+    const query = queryParams.toString()
+    return this.request(`/api/generate/posts${query ? `?${query}` : ''}`)
+  }
+
+  async getPost(postId: string): Promise<any> {
+    return this.request(`/api/generate/posts/${postId}`)
+  }
+
+  async updatePostStatus(postId: string, status: string): Promise<any> {
+    return this.request(`/api/generate/posts/${postId}/status?status=${status}`, {
+      method: 'PATCH',
+    })
+  }
+
+  async deletePost(postId: string): Promise<any> {
+    return this.request(`/api/generate/posts/${postId}`, { method: 'DELETE' })
+  }
+
+  // Jobs
+  async listJobs(params: {
+    status?: string
+    limit?: number
+    offset?: number
+  } = {}): Promise<{ jobs: any[]; total: number }> {
+    const queryParams = new URLSearchParams()
+    if (params.status) queryParams.set('status', params.status)
+    if (params.limit) queryParams.set('limit', String(params.limit))
+    if (params.offset) queryParams.set('offset', String(params.offset))
+
+    const query = queryParams.toString()
+    return this.request(`/api/jobs${query ? `?${query}` : ''}`)
+  }
+
+  async getJob(jobId: string): Promise<any> {
+    return this.request(`/api/jobs/${jobId}`)
+  }
+
+  async getJobPosts(jobId: string): Promise<{ job_id: string; posts: any[]; count: number }> {
+    return this.request(`/api/jobs/${jobId}/posts`)
+  }
+
+  async getJobLogs(jobId: string): Promise<{ job_id: string; status: string; logs: string[]; error: string | null }> {
+    return this.request(`/api/jobs/${jobId}/logs`)
+  }
+
+  async cancelJob(jobId: string): Promise<any> {
+    return this.request(`/api/jobs/${jobId}`, { method: 'DELETE' })
+  }
+
+  async cleanupOldJobs(daysOld = 30): Promise<{ message: string; deleted_count: number }> {
+    return this.request(`/api/jobs/cleanup?days_old=${daysOld}`, { method: 'POST' })
+  }
+}
+
+// Export singleton instance
+export const api = new ApiClient()
+
+// Export class for custom instances
+export { ApiClient }
+
+
+

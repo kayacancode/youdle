@@ -1,0 +1,92 @@
+# GitHub Actions workflow for creating Mailchimp newsletter campaigns
+# This workflow runs after blog posts are published to Blogger
+
+name: Create Newsletter Campaign
+
+on:
+  # Run weekly on Fridays at 2 PM UTC (after human review and publishing)
+  schedule:
+    - cron: '0 14 * * 5'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      subject:
+        description: 'Email subject line (optional)'
+        required: false
+        type: string
+      send_immediately:
+        description: 'Send campaign immediately'
+        required: false
+        default: false
+        type: boolean
+      preview_only:
+        description: 'Preview only (do not create campaign)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  create-campaign:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Download latest blog posts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: blog-posts-*
+          path: blog_posts/
+          merge-multiple: true
+        continue-on-error: true
+      
+      - name: Preview newsletter
+        if: ${{ github.event.inputs.preview_only == 'true' }}
+        run: |
+          python mailchimp_campaign.py --preview -d blog_posts/
+      
+      - name: Create Mailchimp campaign
+        if: ${{ github.event.inputs.preview_only != 'true' }}
+        env:
+          MAILCHIMP_API_KEY: ${{ secrets.MAILCHIMP_API_KEY }}
+          MAILCHIMP_LIST_ID: ${{ secrets.MAILCHIMP_LIST_ID }}
+          MAILCHIMP_SERVER_PREFIX: ${{ secrets.MAILCHIMP_SERVER_PREFIX }}
+        run: |
+          SEND_FLAG=""
+          if [ "${{ github.event.inputs.send_immediately }}" == "true" ]; then
+            SEND_FLAG="--send"
+          fi
+          
+          SUBJECT_FLAG=""
+          if [ -n "${{ github.event.inputs.subject }}" ]; then
+            SUBJECT_FLAG="-s '${{ github.event.inputs.subject }}'"
+          fi
+          
+          python mailchimp_campaign.py -d blog_posts/ $SEND_FLAG $SUBJECT_FLAG > campaign_result.json
+          
+          echo "## Campaign Result" >> $GITHUB_STEP_SUMMARY
+          cat campaign_result.json >> $GITHUB_STEP_SUMMARY
+      
+      - name: Upload campaign result
+        if: ${{ github.event.inputs.preview_only != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: campaign-result-${{ github.run_id }}
+          path: campaign_result.json
+          retention-days: 30
+
+
+

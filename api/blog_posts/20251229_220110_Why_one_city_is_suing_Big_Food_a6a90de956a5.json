@@ -1,0 +1,23 @@
+{
+  "title": "Why one city is suing Big Food over cereals, snacks and other ultra-processed products",
+  "category": "shoppers",
+  "original_link": "https://www.washingtonpost.com/health/2025/12/02/ultra-processed-foods-lawsuit/",
+  "image_url": "{IMAGE_HERE}",
+  "generated_at": "2025-12-29T22:01:10.789798",
+  "article": {
+    "feedIndex": 6,
+    "category": "SHOPPERS",
+    "title": "Why one city is suing Big Food over cereals, snacks and other ultra-processed products",
+    "description": "Democracy Dies in Darkness\n\nBy [Allyson Chiu](https://www.washingtonpost.com/people/allyson-chiu/)\nand\n\n[Rachel Roubein](https://www.washingtonpost.com/people/rachel-roubein/)\n\nMakers of popular drinks, snacks and cereals that fill store shelves and pantries across the nation are facing legalheat again.\n\nSan Francisco\u2019s city attorney filed a [first-of-its-kind government lawsuit](https://sfcityattorney.org/san-francisco-city-attorney-chiu-sues-largest-manufacturers-of-ultra-processed-foods/) on Tuesday against some of the country\u2019s largest manufacturers of ultra-processed food, accusing the companies of making and selling products that are harmful to people\u2019s health. The lawsuit comes during growing concerns about the links between highly processed foods \u2014 which are made up mostly of substances extracted from other foods or man-made in laboratories and also often contain numerous additives \u2014 and the [rising rates of many health conditions](https://www.washingtonpost.com/wellness/2024/02/29/ultraprocessed-foods-health-risk/), such as chronic diseases and cancer.\n\n**Comments**\n\nSign up",
+    "link": "https://www.washingtonpost.com/health/2025/12/02/ultra-processed-foods-lawsuit/",
+    "pubDate": "2025-12-02T00:00:00+00:00",
+    "score": 135.0,
+    "regeneration_hints": "- Fix: Word count issue: 178 words\n- Fix: Contains unreplaced {original_link} placeholder\n- Add more content (current: 178, target: ~250)"
+  },
+  "reflection": {
+    "is_valid": true,
+    "issues": [],
+    "suggestions": []
+  },
+  "attempts": 1
+}

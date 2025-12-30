@@ -1,0 +1,23 @@
+{
+  "title": "FoodSafety.gov",
+  "category": "shoppers",
+  "original_link": "https://www.foodsafety.gov/",
+  "image_url": "{IMAGE_HERE}",
+  "generated_at": "2025-12-29T16:10:22.130592",
+  "article": {
+    "feedIndex": 11,
+    "category": "SHOPPERS",
+    "title": "FoodSafety.gov",
+    "description": "FoodSafety.gov\n[Skip to main content](#main-content)\n![U.S. flag](https://www.foodsafety.gov/themes/custom/foodsafety/assets/img/us_flag_small.png)\nAn official website of the United States government\nHere\u2019s how you know\nHere\u2019s how you know\n![Dot gov](https://www.foodsafety.gov/themes/custom/foodsafety/assets/img/icon-dot-gov.svg)\n**Official websites use .gov**\nA**.gov**website belongs to an official government organization in the United States.\n![Https](https://www.foodsafety.gov/themes/custom/foodsafety/assets/img/icon-https.svg)\n**Secure .gov websites use HTTPS**\nA**lock**() or**https://**means you\u2019ve safely connected to the .gov website. Share sensitive information only on official, secure websites.\n[![Home](https://www.foodsafety.gov/themes/custom/foodsafety/assets/img/fs-logo.png)](https://www.foodsafety.gov/)*[FoodSafety.gov](https://www.foodsafety.gov/)*\nMenu\n![close](https://www.foodsafety.gov/themes/custom/foodsafety/assets/img/close.svg)\n* [Recalls &amp; Outbreaks](https://www.foodsafety.gov/recalls-and-outbreaks)\n* Food Safety Charts\n* [Food Safety Charts](https://www.foodsafety.gov/food-safety-charts)\n* [Cold Food Storage](https://www.foodsafety.gov/food-safety-charts/cold-food-storage-charts)\n* [Food Safety During Power Outage](https://www.foodsafety.gov/food-safety-charts/food-safety-during-power-outage)\n* [Meat and Poultry](https://www.foodsafety.gov/food-safety-charts/meat-poultry-charts)\n* [Safe Minimum Internal Temperatures](https://www.foodsafety.gov/food-safety-charts/safe-minimum-internal-temperatures)\n* Keep Food Safe\n* [Keep Food Safe](https://www.foodsafety.gov/keep-food-safe)\n* [4 Simple Steps](https://www.foodsafety.gov/keep-food-safe/4-steps-to-food-safety)\n* [Food Safety by Events and Seasons](https://www.foodsafety.gov/keep-food-safe/food-safety-by-events-and-seasons)\n* [Food Safety by Type of Food](https://www.foodsafety.gov/keep-food-safe/food-safety-by-type-food)\n* [Food Safety in a Disaster or Emergency](https://www.foodsafety.gov/ke",
+    "link": "https://www.foodsafety.gov/",
+    "pubDate": "2025-12-26T22:08:43.377000+00:00",
+    "score": 187.14278809259258,
+    "regeneration_hints": "- Fix: Must have image tag with {IMAGE_HERE} placeholder\n- Fix: Must include 'More information' link\n- Fix: Word count issue: 131 words\n- Add: Must have image tag with {IMAGE_HERE} placeholder\n- Add: Must include 'More information' link\n- Add more content (current: 131, target: ~250)"
+  },
+  "reflection": {
+    "is_valid": true,
+    "issues": [],
+    "suggestions": []
+  },
+  "attempts": 1
+}

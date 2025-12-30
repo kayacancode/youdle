@@ -1,0 +1,91 @@
+# GitHub Actions workflow for generating blog posts
+# This workflow runs on a schedule to generate new blog posts from articles
+
+name: Generate Blog Posts
+
+on:
+  # Run daily at 6 AM UTC (adjust as needed)
+  schedule:
+    - cron: '0 6 * * *'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'OpenAI model to use'
+        required: false
+        default: 'gpt-4'
+        type: choice
+        options:
+          - gpt-4
+          - gpt-3.5-turbo
+      batch_size:
+        description: 'Number of articles to search'
+        required: false
+        default: '30'
+        type: string
+      days_back:
+        description: 'Days to search back'
+        required: false
+        default: '30'
+        type: string
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Generate blog posts
+        env:
+          EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python generate_blog_posts.py \
+            --model ${{ github.event.inputs.model || 'gpt-4' }} \
+            --batch-size ${{ github.event.inputs.batch_size || '30' }} \
+            --days-back ${{ github.event.inputs.days_back || '30' }} \
+            --json > generation_result.json
+      
+      - name: Upload generated posts
+        uses: actions/upload-artifact@v4
+        with:
+          name: blog-posts-${{ github.run_id }}
+          path: |
+            blog_posts/
+            generation_result.json
+          retention-days: 7
+      
+      - name: Summary
+        run: |
+          echo "## Blog Post Generation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f generation_result.json ]; then
+            posts_generated=$(cat generation_result.json | python -c "import sys, json; print(json.load(sys.stdin).get('posts_generated', 0))")
+            posts_failed=$(cat generation_result.json | python -c "import sys, json; print(json.load(sys.stdin).get('posts_failed', 0))")
+            duration=$(cat generation_result.json | python -c "import sys, json; print(json.load(sys.stdin).get('duration_seconds', 0))")
+            echo "- **Posts Generated:** $posts_generated" >> $GITHUB_STEP_SUMMARY
+            echo "- **Posts Failed:** $posts_failed" >> $GITHUB_STEP_SUMMARY
+            echo "- **Duration:** ${duration}s" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Generated posts are available in the artifacts." >> $GITHUB_STEP_SUMMARY
+
+
+
