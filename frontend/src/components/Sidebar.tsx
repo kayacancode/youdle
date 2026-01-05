@@ -1,15 +1,15 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { 
-  LayoutDashboard, 
-  Search, 
-  FileText, 
-  CheckSquare, 
+import {
+  LayoutDashboard,
+  Search,
+  FileText,
+  CheckSquare,
   Settings,
-  Activity,
-  Zap
+  Activity
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -29,9 +29,13 @@ export function Sidebar() {
     <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-stone-200">
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-stone-200">
-        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-youdle-500 to-youdle-600 shadow-lg shadow-youdle-500/25">
-          <Zap className="w-5 h-5 text-white" />
-        </div>
+        <Image
+          src="/img/youdle-logo-brand.svg"
+          alt="Youdle Logo"
+          width={40}
+          height={40}
+          className="w-10 h-10"
+        />
         <div>
           <h1 className="text-lg font-bold text-stone-900 tracking-tight">Youdle</h1>
           <p className="text-xs text-stone-500">Blog Agent Dashboard</p>
