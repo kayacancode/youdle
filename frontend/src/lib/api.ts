@@ -63,6 +63,12 @@ export interface SystemStats {
   error?: string
 }
 
+export interface BlogPostUpdate {
+  html_content?: string
+  image_url?: string | null
+  category?: 'SHOPPERS' | 'RECALL'
+}
+
 // API Client class
 class ApiClient {
   private baseUrl: string
@@ -165,6 +171,13 @@ class ApiClient {
 
   async deletePost(postId: string): Promise<any> {
     return this.request(`/api/generate/posts/${postId}`, { method: 'DELETE' })
+  }
+
+  async updatePost(postId: string, updates: BlogPostUpdate): Promise<any> {
+    return this.request(`/api/generate/posts/${postId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    })
   }
 
   // Jobs
