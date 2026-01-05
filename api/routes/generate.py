@@ -318,12 +318,59 @@ async def delete_blog_post(post_id: str):
     try:
         from supabase_storage import get_supabase_client
         supabase = get_supabase_client()
-        
+
         result = supabase.client.table("blog_posts").delete().eq("id", post_id).execute()
-        
+
         return {"message": "Post deleted", "id": post_id}
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete post: {str(e)}")
+
+
+class BlogPostUpdate(BaseModel):
+    """Blog post update model"""
+    html_content: Optional[str] = None
+    image_url: Optional[str] = None
+    category: Optional[str] = None
+
+
+@router.patch("/posts/{post_id}")
+async def update_blog_post(post_id: str, updates: BlogPostUpdate):
+    """
+    Update blog post content (html_content, image_url, category).
+    """
+    if updates.category and updates.category.upper() not in ["SHOPPERS", "RECALL"]:
+        raise HTTPException(status_code=400, detail="Invalid category. Must be: SHOPPERS or RECALL")
+
+    try:
+        from supabase_storage import get_supabase_client
+        supabase = get_supabase_client()
+
+        # Build update dict from provided fields only
+        update_data = {}
+        if updates.html_content is not None:
+            update_data["html_content"] = updates.html_content
+        if updates.image_url is not None:
+            update_data["image_url"] = updates.image_url
+        if updates.category is not None:
+            update_data["category"] = updates.category.upper()
+
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No fields provided to update")
+
+        # Always update the updated_at timestamp
+        update_data["updated_at"] = datetime.utcnow().isoformat()
+
+        result = supabase.client.table("blog_posts").update(update_data).eq("id", post_id).execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Post not found")
+
+        return {"message": "Post updated successfully", "post": result.data[0]}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update post: {str(e)}")
 
 
