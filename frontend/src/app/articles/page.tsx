@@ -32,23 +32,23 @@ export default function ArticlesPage() {
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-midnight-900 dark:text-white">
+        <h1 className="text-3xl font-bold text-stone-900">
           Article Search
         </h1>
-        <p className="mt-2 text-midnight-500 dark:text-midnight-400">
+        <p className="mt-2 text-stone-500">
           Preview article search results and see what content would be selected for blog generation.
         </p>
       </div>
 
       {/* Search Controls */}
-      <div className="rounded-2xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700 p-6">
-        <h3 className="text-lg font-semibold text-midnight-900 dark:text-white mb-4">
+      <div className="rounded-2xl bg-white border border-stone-200 p-6">
+        <h3 className="text-lg font-semibold text-stone-900 mb-4">
           Search Parameters
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-midnight-700 dark:text-midnight-300 mb-2">
+            <label className="block text-sm font-medium text-midnight-700 mb-2">
               Batch Size
             </label>
             <input
@@ -57,12 +57,12 @@ export default function ArticlesPage() {
               max={50}
               value={batchSize}
               onChange={(e) => setBatchSize(parseInt(e.target.value) || 10)}
-              className="w-full px-3 py-2 rounded-lg border border-midnight-300 dark:border-midnight-600 bg-white dark:bg-midnight-900 text-midnight-900 dark:text-white focus:ring-2 focus:ring-youdle-500 focus:border-transparent"
+              className="w-full px-3 py-2 rounded-lg border border-midnight-300 bg-white text-stone-900 focus:ring-2 focus:ring-youdle-500 focus:border-transparent"
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-midnight-700 dark:text-midnight-300 mb-2">
+            <label className="block text-sm font-medium text-midnight-700 mb-2">
               Days Back
             </label>
             <input
@@ -71,18 +71,18 @@ export default function ArticlesPage() {
               max={90}
               value={daysBack}
               onChange={(e) => setDaysBack(parseInt(e.target.value) || 30)}
-              className="w-full px-3 py-2 rounded-lg border border-midnight-300 dark:border-midnight-600 bg-white dark:bg-midnight-900 text-midnight-900 dark:text-white focus:ring-2 focus:ring-youdle-500 focus:border-transparent"
+              className="w-full px-3 py-2 rounded-lg border border-midnight-300 bg-white text-stone-900 focus:ring-2 focus:ring-youdle-500 focus:border-transparent"
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-midnight-700 dark:text-midnight-300 mb-2">
+            <label className="block text-sm font-medium text-midnight-700 mb-2">
               Category Filter
             </label>
             <select
               value={categoryFilter || ''}
               onChange={(e) => setCategoryFilter(e.target.value || null)}
-              className="w-full px-3 py-2 rounded-lg border border-midnight-300 dark:border-midnight-600 bg-white dark:bg-midnight-900 text-midnight-900 dark:text-white focus:ring-2 focus:ring-youdle-500 focus:border-transparent"
+              className="w-full px-3 py-2 rounded-lg border border-midnight-300 bg-white text-stone-900 focus:ring-2 focus:ring-youdle-500 focus:border-transparent"
             >
               <option value="">All Categories</option>
               <option value="SHOPPERS">Shoppers Only</option>
@@ -115,43 +115,43 @@ export default function ArticlesPage() {
       {/* Results Summary */}
       {data && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700">
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-white border border-stone-200">
             <div className="w-10 h-10 rounded-lg bg-youdle-100 dark:bg-youdle-900/30 flex items-center justify-center">
               <Filter className="w-5 h-5 text-youdle-600 dark:text-youdle-400" />
             </div>
             <div>
-              <p className="text-sm text-midnight-500 dark:text-midnight-400">Processed</p>
-              <p className="text-xl font-bold text-midnight-900 dark:text-white">{data.processed_count}</p>
+              <p className="text-sm text-stone-500">Processed</p>
+              <p className="text-xl font-bold text-stone-900">{data.processed_count}</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700">
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-white border border-stone-200">
             <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
               <Search className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-sm text-midnight-500 dark:text-midnight-400">Total Found</p>
-              <p className="text-xl font-bold text-midnight-900 dark:text-white">{data.total_ranked_count}</p>
+              <p className="text-sm text-stone-500">Total Found</p>
+              <p className="text-xl font-bold text-stone-900">{data.total_ranked_count}</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700">
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-white border border-stone-200">
             <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
               <ShoppingCart className="w-5 h-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="text-sm text-midnight-500 dark:text-midnight-400">Shoppers</p>
-              <p className="text-xl font-bold text-midnight-900 dark:text-white">{data.shoppers_count}</p>
+              <p className="text-sm text-stone-500">Shoppers</p>
+              <p className="text-xl font-bold text-stone-900">{data.shoppers_count}</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700">
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-white border border-stone-200">
             <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
               <AlertOctagon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <p className="text-sm text-midnight-500 dark:text-midnight-400">Recall</p>
-              <p className="text-xl font-bold text-midnight-900 dark:text-white">{data.recall_count}</p>
+              <p className="text-sm text-stone-500">Recall</p>
+              <p className="text-xl font-bold text-stone-900">{data.recall_count}</p>
             </div>
           </div>
         </div>
@@ -168,12 +168,12 @@ export default function ArticlesPage() {
 
       {/* Empty State */}
       {!data && !isLoading && searchTrigger === 0 && (
-        <div className="text-center py-16 rounded-2xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700">
-          <Search className="w-12 h-12 text-midnight-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-midnight-900 dark:text-white mb-2">
+        <div className="text-center py-16 rounded-2xl bg-white border border-stone-200">
+          <Search className="w-12 h-12 text-stone-600 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-stone-900 mb-2">
             Ready to Search
           </h3>
-          <p className="text-midnight-500 dark:text-midnight-400 max-w-md mx-auto">
+          <p className="text-stone-500 max-w-md mx-auto">
             Configure your search parameters above and click "Search" to preview the articles that would be selected for blog generation.
           </p>
         </div>
@@ -182,7 +182,7 @@ export default function ArticlesPage() {
       {/* Results Grid */}
       {filteredItems.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-midnight-900 dark:text-white mb-4">
+          <h3 className="text-lg font-semibold text-stone-900 mb-4">
             Search Results ({filteredItems.length})
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
@@ -196,7 +196,7 @@ export default function ArticlesPage() {
       {/* Recall Items Section */}
       {data?.recall_items && data.recall_items.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-midnight-900 dark:text-white mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-stone-900 mb-4 flex items-center gap-2">
             <AlertOctagon className="w-5 h-5 text-amber-500" />
             Recent Recall Alerts ({data.recall_items.length})
           </h3>

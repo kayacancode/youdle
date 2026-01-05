@@ -42,8 +42,8 @@ export function QuickActions({ onSearchPreview, onStartGeneration, className }: 
   }
 
   return (
-    <div className={cn('rounded-2xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700 p-6', className)}>
-      <h3 className="text-lg font-semibold text-midnight-900 dark:text-white mb-4">Quick Actions</h3>
+    <div className={cn('rounded-2xl bg-white  border border-stone-200  p-6', className)}>
+      <h3 className="text-lg font-semibold text-stone-900  mb-4">Quick Actions</h3>
       
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <button
@@ -51,7 +51,7 @@ export function QuickActions({ onSearchPreview, onStartGeneration, className }: 
           disabled={isGenerating}
           className={cn(
             'flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-sm transition-all',
-            'bg-gradient-to-r from-youdle-500 to-youdle-600 text-white',
+            'bg-gradient-to-r from-youdle-500 to-youdle-600 text-stone-900',
             'hover:from-youdle-600 hover:to-youdle-700 hover:shadow-lg hover:shadow-youdle-500/25',
             'disabled:opacity-50 disabled:cursor-not-allowed'
           )}
@@ -69,7 +69,7 @@ export function QuickActions({ onSearchPreview, onStartGeneration, className }: 
           disabled={isSearching}
           className={cn(
             'flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-sm transition-all',
-            'bg-midnight-100 dark:bg-midnight-700 text-midnight-700 dark:text-midnight-200',
+            'bg-midnight-100  text-midnight-700 ',
             'hover:bg-midnight-200 dark:hover:bg-midnight-600',
             'disabled:opacity-50 disabled:cursor-not-allowed'
           )}

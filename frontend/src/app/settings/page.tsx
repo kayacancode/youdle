@@ -30,25 +30,25 @@ export default function SettingsPage() {
     <div className="space-y-8 animate-fade-in max-w-3xl">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-midnight-900 dark:text-white">
+        <h1 className="text-3xl font-bold text-stone-900">
           Settings
         </h1>
-        <p className="mt-2 text-midnight-500 dark:text-midnight-400">
+        <p className="mt-2 text-stone-500">
           Configure your blog generation pipeline and API connections.
         </p>
       </div>
 
       {/* Generation Settings */}
-      <div className="rounded-2xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700 p-6">
+      <div className="rounded-2xl bg-white border border-stone-200 p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-xl bg-youdle-100 dark:bg-youdle-900/30 flex items-center justify-center">
             <Settings className="w-5 h-5 text-youdle-600 dark:text-youdle-400" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-midnight-900 dark:text-white">
+            <h2 className="text-lg font-semibold text-stone-900">
               Generation Settings
             </h2>
-            <p className="text-sm text-midnight-500 dark:text-midnight-400">
+            <p className="text-sm text-stone-500">
               Default parameters for blog post generation
             </p>
           </div>
@@ -56,7 +56,7 @@ export default function SettingsPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-midnight-700 dark:text-midnight-300 mb-2">
+            <label className="block text-sm font-medium text-midnight-700 mb-2">
               Default Batch Size
             </label>
             <input
@@ -65,15 +65,15 @@ export default function SettingsPage() {
               max={50}
               value={config.batchSize}
               onChange={(e) => setConfig({ ...config, batchSize: parseInt(e.target.value) || 10 })}
-              className="w-full px-3 py-2 rounded-lg border border-midnight-300 dark:border-midnight-600 bg-white dark:bg-midnight-900 text-midnight-900 dark:text-white focus:ring-2 focus:ring-youdle-500 focus:border-transparent"
+              className="w-full px-3 py-2 rounded-lg border border-midnight-300 bg-white text-stone-900 focus:ring-2 focus:ring-youdle-500 focus:border-transparent"
             />
-            <p className="mt-1 text-xs text-midnight-500 dark:text-midnight-400">
+            <p className="mt-1 text-xs text-stone-500">
               Number of articles to process per run
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-midnight-700 dark:text-midnight-300 mb-2">
+            <label className="block text-sm font-medium text-midnight-700 mb-2">
               Search Days Back
             </label>
             <input
@@ -82,21 +82,21 @@ export default function SettingsPage() {
               max={90}
               value={config.searchDaysBack}
               onChange={(e) => setConfig({ ...config, searchDaysBack: parseInt(e.target.value) || 30 })}
-              className="w-full px-3 py-2 rounded-lg border border-midnight-300 dark:border-midnight-600 bg-white dark:bg-midnight-900 text-midnight-900 dark:text-white focus:ring-2 focus:ring-youdle-500 focus:border-transparent"
+              className="w-full px-3 py-2 rounded-lg border border-midnight-300 bg-white text-stone-900 focus:ring-2 focus:ring-youdle-500 focus:border-transparent"
             />
-            <p className="mt-1 text-xs text-midnight-500 dark:text-midnight-400">
+            <p className="mt-1 text-xs text-stone-500">
               How far back to search for articles
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-midnight-700 dark:text-midnight-300 mb-2">
+            <label className="block text-sm font-medium text-midnight-700 mb-2">
               LLM Model
             </label>
             <select
               value={config.model}
               onChange={(e) => setConfig({ ...config, model: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-midnight-300 dark:border-midnight-600 bg-white dark:bg-midnight-900 text-midnight-900 dark:text-white focus:ring-2 focus:ring-youdle-500 focus:border-transparent"
+              className="w-full px-3 py-2 rounded-lg border border-midnight-300 bg-white text-stone-900 focus:ring-2 focus:ring-youdle-500 focus:border-transparent"
             >
               <option value="gpt-4">GPT-4</option>
               <option value="gpt-4-turbo">GPT-4 Turbo</option>
@@ -105,7 +105,7 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-midnight-700 dark:text-midnight-300 mb-2">
+            <label className="block text-sm font-medium text-midnight-700 mb-2">
               Options
             </label>
             <div className="space-y-3">
@@ -116,7 +116,7 @@ export default function SettingsPage() {
                   onChange={(e) => setConfig({ ...config, usePlaceholderImages: e.target.checked })}
                   className="w-4 h-4 rounded border-midnight-300 text-youdle-500 focus:ring-youdle-500"
                 />
-                <span className="text-sm text-midnight-700 dark:text-midnight-300">
+                <span className="text-sm text-midnight-700">
                   Use placeholder images (skip Gemini)
                 </span>
               </label>
@@ -127,7 +127,7 @@ export default function SettingsPage() {
                   onChange={(e) => setConfig({ ...config, useLegacyOrchestrator: e.target.checked })}
                   className="w-4 h-4 rounded border-midnight-300 text-youdle-500 focus:ring-youdle-500"
                 />
-                <span className="text-sm text-midnight-700 dark:text-midnight-300">
+                <span className="text-sm text-midnight-700">
                   Use legacy orchestrator (skip LangGraph)
                 </span>
               </label>
@@ -137,16 +137,16 @@ export default function SettingsPage() {
       </div>
 
       {/* API Status */}
-      <div className="rounded-2xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700 p-6">
+      <div className="rounded-2xl bg-white border border-stone-200 p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
             <Server className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-midnight-900 dark:text-white">
+            <h2 className="text-lg font-semibold text-stone-900">
               API Connections
             </h2>
-            <p className="text-sm text-midnight-500 dark:text-midnight-400">
+            <p className="text-sm text-stone-500">
               Status of external services
             </p>
           </div>
@@ -162,7 +162,7 @@ export default function SettingsPage() {
           ].map((service) => (
             <div
               key={service.name}
-              className="flex items-center justify-between p-3 rounded-xl bg-midnight-50 dark:bg-midnight-900/50"
+              className="flex items-center justify-between p-3 rounded-xl bg-midnight-50"
             >
               <div className="flex items-center gap-3">
                 <div className={cn(
@@ -170,10 +170,10 @@ export default function SettingsPage() {
                   service.status === 'connected' ? 'bg-green-500' : 'bg-yellow-500'
                 )} />
                 <div>
-                  <p className="text-sm font-medium text-midnight-900 dark:text-white">
+                  <p className="text-sm font-medium text-stone-900">
                     {service.name}
                   </p>
-                  <p className="text-xs text-midnight-500 dark:text-midnight-400">
+                  <p className="text-xs text-stone-500">
                     {service.endpoint}
                   </p>
                 </div>
@@ -184,23 +184,23 @@ export default function SettingsPage() {
       </div>
 
       {/* Environment Variables Info */}
-      <div className="rounded-2xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700 p-6">
+      <div className="rounded-2xl bg-white border border-stone-200 p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
             <Key className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-midnight-900 dark:text-white">
+            <h2 className="text-lg font-semibold text-stone-900">
               Environment Variables
             </h2>
-            <p className="text-sm text-midnight-500 dark:text-midnight-400">
+            <p className="text-sm text-stone-500">
               Required environment variables for the system
             </p>
           </div>
         </div>
 
-        <div className="bg-midnight-50 dark:bg-midnight-900 rounded-lg p-4 font-mono text-sm">
-          <pre className="text-midnight-600 dark:text-midnight-300 whitespace-pre-wrap">
+        <div className="bg-midnight-50 rounded-lg p-4 font-mono text-sm">
+          <pre className="text-midnight-600 whitespace-pre-wrap">
 {`# Frontend (.env.local)
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
