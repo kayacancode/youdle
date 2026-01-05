@@ -19,8 +19,8 @@ export function RealtimeStatus({ className }: RealtimeStatusProps) {
     <div className={cn(
       'flex items-center gap-2 px-3 py-2 rounded-lg text-sm',
       isConnected 
-        ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
-        : 'bg-midnight-100 dark:bg-midnight-800 text-midnight-500 dark:text-midnight-400',
+        ? 'bg-green-50 dark:bg-green-900/20 text-green-700'
+        : 'bg-midnight-100 text-stone-500',
       className
     )}>
       {isConnected ? (

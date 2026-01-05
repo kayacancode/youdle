@@ -76,23 +76,23 @@ export default function ReviewPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-midnight-900 dark:text-white">
+          <h1 className="text-3xl font-bold text-stone-900">
             Review Queue
           </h1>
-          <p className="mt-2 text-midnight-500 dark:text-midnight-400">
+          <p className="mt-2 text-stone-500">
             Review generated posts, provide feedback, and approve for publishing.
           </p>
         </div>
         
         {posts && posts.length > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700">
-            <span className="text-sm text-midnight-500 dark:text-midnight-400">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-stone-200">
+            <span className="text-sm text-stone-500">
               Post
             </span>
-            <span className="text-lg font-bold text-midnight-900 dark:text-white">
+            <span className="text-lg font-bold text-stone-900">
               {currentIndex + 1}
             </span>
-            <span className="text-sm text-midnight-500 dark:text-midnight-400">
+            <span className="text-sm text-stone-500">
               of {posts.length}
             </span>
           </div>
@@ -117,12 +117,12 @@ export default function ReviewPage() {
 
       {/* Empty State */}
       {!isLoading && (!posts || posts.length === 0) && (
-        <div className="text-center py-16 rounded-2xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700">
+        <div className="text-center py-16 rounded-2xl bg-white border border-stone-200">
           <CheckSquare className="w-12 h-12 text-green-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-midnight-900 dark:text-white mb-2">
+          <h3 className="text-lg font-semibold text-stone-900 mb-2">
             All Caught Up!
           </h3>
-          <p className="text-midnight-500 dark:text-midnight-400 max-w-md mx-auto">
+          <p className="text-stone-500 max-w-md mx-auto">
             There are no draft posts waiting for review. Generate new posts or check back later.
           </p>
         </div>
@@ -146,8 +146,8 @@ export default function ReviewPage() {
             />
 
             {/* Quick Actions */}
-            <div className="rounded-2xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700 p-4">
-              <h4 className="text-sm font-medium text-midnight-700 dark:text-midnight-300 mb-3">
+            <div className="rounded-2xl bg-white border border-stone-200 p-4">
+              <h4 className="text-sm font-medium text-midnight-700 mb-3">
                 Quick Actions
               </h4>
               <div className="grid grid-cols-2 gap-3">
@@ -180,8 +180,8 @@ export default function ReviewPage() {
             className={cn(
               'flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all',
               currentIndex === 0
-                ? 'bg-midnight-100 dark:bg-midnight-800 text-midnight-400 cursor-not-allowed'
-                : 'bg-midnight-100 dark:bg-midnight-800 text-midnight-700 dark:text-midnight-300 hover:bg-midnight-200 dark:hover:bg-midnight-700'
+                ? 'bg-midnight-100 text-stone-600 cursor-not-allowed'
+                : 'bg-midnight-100 text-midnight-700 hover:bg-midnight-200 dark:hover:bg-midnight-700'
             )}
           >
             <ChevronLeft className="w-4 h-4" />
@@ -198,12 +198,12 @@ export default function ReviewPage() {
                   'w-2 h-2 rounded-full transition-all',
                   index === currentIndex
                     ? 'w-6 bg-youdle-500'
-                    : 'bg-midnight-300 dark:bg-midnight-600 hover:bg-midnight-400 dark:hover:bg-midnight-500'
+                    : 'bg-midnight-300 hover:bg-midnight-400 dark:hover:bg-midnight-500'
                 )}
               />
             ))}
             {posts.length > 10 && (
-              <span className="text-xs text-midnight-500 dark:text-midnight-400 ml-1">
+              <span className="text-xs text-stone-500 ml-1">
                 +{posts.length - 10}
               </span>
             )}
@@ -215,8 +215,8 @@ export default function ReviewPage() {
             className={cn(
               'flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all',
               currentIndex === posts.length - 1
-                ? 'bg-midnight-100 dark:bg-midnight-800 text-midnight-400 cursor-not-allowed'
-                : 'bg-midnight-100 dark:bg-midnight-800 text-midnight-700 dark:text-midnight-300 hover:bg-midnight-200 dark:hover:bg-midnight-700'
+                ? 'bg-midnight-100 text-stone-600 cursor-not-allowed'
+                : 'bg-midnight-100 text-midnight-700 hover:bg-midnight-200 dark:hover:bg-midnight-700'
             )}
           >
             Next

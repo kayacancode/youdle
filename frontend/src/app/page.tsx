@@ -52,10 +52,10 @@ export default function DashboardPage() {
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-midnight-900 dark:text-white">
+        <h1 className="text-3xl font-bold text-stone-900">
           Dashboard
         </h1>
-        <p className="mt-2 text-midnight-500 dark:text-midnight-400">
+        <p className="mt-2 text-stone-500">
           Monitor your blog generation pipeline and manage content.
         </p>
       </div>
@@ -131,21 +131,21 @@ export default function DashboardPage() {
       />
 
       {/* API Status */}
-      <div className="rounded-2xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700 p-6">
-        <h3 className="text-lg font-semibold text-midnight-900 dark:text-white mb-4">System Status</h3>
+      <div className="rounded-2xl bg-white border border-stone-200 p-6">
+        <h3 className="text-lg font-semibold text-stone-900 mb-4">System Status</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-midnight-50 dark:bg-midnight-900/50">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-midnight-50">
             <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
             <div>
-              <p className="text-sm font-medium text-midnight-900 dark:text-white">FastAPI Backend</p>
-              <p className="text-xs text-midnight-500 dark:text-midnight-400">http://localhost:8000</p>
+              <p className="text-sm font-medium text-stone-900">FastAPI Backend</p>
+              <p className="text-xs text-stone-500">http://localhost:8000</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-midnight-50 dark:bg-midnight-900/50">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-midnight-50">
             <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
             <div>
-              <p className="text-sm font-medium text-midnight-900 dark:text-white">Supabase</p>
-              <p className="text-xs text-midnight-500 dark:text-midnight-400">Connected</p>
+              <p className="text-sm font-medium text-stone-900">Supabase</p>
+              <p className="text-xs text-stone-500">Connected</p>
             </div>
           </div>
         </div>

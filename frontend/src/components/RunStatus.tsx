@@ -34,16 +34,16 @@ const statusIcons = {
 export function RunStatus({ jobs, className }: RunStatusProps) {
   if (jobs.length === 0) {
     return (
-      <div className={cn('rounded-2xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700 p-6', className)}>
-        <h3 className="text-lg font-semibold text-midnight-900 dark:text-white mb-4">Recent Runs</h3>
-        <p className="text-midnight-500 dark:text-midnight-400 text-sm">No recent jobs found.</p>
+      <div className={cn('rounded-2xl bg-white  border border-stone-200  p-6', className)}>
+        <h3 className="text-lg font-semibold text-stone-900  mb-4">Recent Runs</h3>
+        <p className="text-stone-500  text-sm">No recent jobs found.</p>
       </div>
     )
   }
 
   return (
-    <div className={cn('rounded-2xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700 p-6', className)}>
-      <h3 className="text-lg font-semibold text-midnight-900 dark:text-white mb-4">Recent Runs</h3>
+    <div className={cn('rounded-2xl bg-white  border border-stone-200  p-6', className)}>
+      <h3 className="text-lg font-semibold text-stone-900  mb-4">Recent Runs</h3>
       
       <div className="space-y-3">
         {jobs.map((job) => {
@@ -53,7 +53,7 @@ export function RunStatus({ jobs, className }: RunStatusProps) {
           return (
             <div
               key={job.id}
-              className="flex items-center justify-between p-4 rounded-xl bg-midnight-50 dark:bg-midnight-900/50 border border-midnight-100 dark:border-midnight-800"
+              className="flex items-center justify-between p-4 rounded-xl bg-midnight-50  border border-midnight-100 "
             >
               <div className="flex items-center gap-3 flex-1">
                 <div className={cn(
@@ -61,28 +61,28 @@ export function RunStatus({ jobs, className }: RunStatusProps) {
                   job.status === 'running' ? 'bg-blue-100 dark:bg-blue-900/30' :
                   job.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30' :
                   job.status === 'failed' ? 'bg-red-100 dark:bg-red-900/30' :
-                  'bg-midnight-100 dark:bg-midnight-800'
+                  'bg-midnight-100 '
                 )}>
                   <StatusIcon className={cn(
                     'w-5 h-5',
                     job.status === 'running' && 'animate-spin text-blue-600 dark:text-blue-400',
-                    job.status === 'completed' && 'text-green-600 dark:text-green-400',
-                    job.status === 'failed' && 'text-red-600 dark:text-red-400',
+                    job.status === 'completed' && 'text-green-600',
+                    job.status === 'failed' && 'text-red-600',
                     job.status === 'pending' && 'text-yellow-600 dark:text-yellow-400',
-                    job.status === 'cancelled' && 'text-midnight-500'
+                    job.status === 'cancelled' && 'text-stone-500'
                   )} />
                 </div>
 
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-midnight-900 dark:text-white">
+                  <p className="text-sm font-medium text-stone-900 ">
                     {job.config?.batch_size || 10} articles • {job.config?.model || 'gpt-4'}
                   </p>
                   <div className="flex items-center gap-3 mt-1">
-                    <p className="text-xs text-midnight-500 dark:text-midnight-400">
+                    <p className="text-xs text-stone-500 ">
                       {formatDate(job.started_at || job.completed_at)}
                     </p>
                     {job.started_at && (
-                      <div className="flex items-center gap-1 text-xs text-midnight-500 dark:text-midnight-400">
+                      <div className="flex items-center gap-1 text-xs text-stone-500 ">
                         <Timer className="w-3 h-3" />
                         <span>{elapsedTime}</span>
                       </div>
@@ -99,7 +99,7 @@ export function RunStatus({ jobs, className }: RunStatusProps) {
                   {job.status}
                 </span>
                 {job.result?.posts_generated !== undefined && (
-                  <p className="text-xs text-midnight-500 dark:text-midnight-400 mt-1">
+                  <p className="text-xs text-stone-500  mt-1">
                     {job.result.posts_generated} posts
                   </p>
                 )}

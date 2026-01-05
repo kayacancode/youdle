@@ -26,24 +26,24 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-midnight-900 border-r border-midnight-800">
+    <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-stone-200">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-midnight-800">
+      <div className="flex items-center gap-3 px-6 py-5 border-b border-stone-200">
         <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-youdle-500 to-youdle-600 shadow-lg shadow-youdle-500/25">
           <Zap className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-lg font-bold text-white tracking-tight">Youdle</h1>
-          <p className="text-xs text-midnight-400">Blog Agent Dashboard</p>
+          <h1 className="text-lg font-bold text-stone-900 tracking-tight">Youdle</h1>
+          <p className="text-xs text-stone-500">Blog Agent Dashboard</p>
         </div>
       </div>
 
       {/* Navigation */}
       <nav className="px-3 py-4 space-y-1">
         {navigation.map((item) => {
-          const isActive = pathname === item.href || 
+          const isActive = pathname === item.href ||
             (item.href !== '/' && pathname.startsWith(item.href))
-          
+
           return (
             <Link
               key={item.name}
@@ -51,13 +51,13 @@ export function Sidebar() {
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
                 isActive
-                  ? 'bg-youdle-500/10 text-youdle-400 shadow-sm'
-                  : 'text-midnight-400 hover:text-white hover:bg-midnight-800'
+                  ? 'bg-youdle-50 text-youdle-700 shadow-sm'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
               )}
             >
               <item.icon className={cn(
                 'w-5 h-5 transition-colors',
-                isActive ? 'text-youdle-400' : 'text-midnight-500'
+                isActive ? 'text-youdle-600' : 'text-stone-400'
               )} />
               {item.name}
             </Link>
@@ -66,12 +66,12 @@ export function Sidebar() {
       </nav>
 
       {/* Status indicator */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-midnight-800">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-midnight-800/50">
+      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-stone-200">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-stone-50">
           <div className="w-2 h-2 rounded-full bg-youdle-500 animate-pulse" />
-          <span className="text-xs text-midnight-400">System Online</span>
+          <span className="text-xs text-stone-600">System Online</span>
         </div>
-        <p className="text-xs text-midnight-500 mt-2 px-3">Real-time updates enabled</p>
+        <p className="text-xs text-stone-400 mt-2 px-3">Real-time updates enabled</p>
       </div>
     </aside>
   )

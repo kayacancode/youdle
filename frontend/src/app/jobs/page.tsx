@@ -76,10 +76,10 @@ export default function JobsPage() {
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-midnight-900 dark:text-white">
+        <h1 className="text-3xl font-bold text-stone-900">
           Jobs
         </h1>
-        <p className="mt-2 text-midnight-500 dark:text-midnight-400">
+        <p className="mt-2 text-stone-500">
           Monitor generation jobs and view their results. Real-time updates enabled.
         </p>
       </div>
@@ -94,7 +94,7 @@ export default function JobsPage() {
               'px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
               statusFilter === status
                 ? status ? getStatusColor(status) : 'bg-youdle-100 dark:bg-youdle-900/30 text-youdle-700 dark:text-youdle-300'
-                : 'bg-midnight-100 dark:bg-midnight-800 text-midnight-600 dark:text-midnight-400 hover:bg-midnight-200 dark:hover:bg-midnight-700'
+                : 'bg-midnight-100 text-midnight-600 hover:bg-midnight-200 dark:hover:bg-midnight-700'
             )}
           >
             {status ? status.charAt(0).toUpperCase() + status.slice(1) : 'All'}
@@ -112,12 +112,12 @@ export default function JobsPage() {
           )}
 
           {!isLoading && jobs.length === 0 && (
-            <div className="text-center py-16 rounded-2xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700">
-              <Activity className="w-12 h-12 text-midnight-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-midnight-900 dark:text-white mb-2">
+            <div className="text-center py-16 rounded-2xl bg-white border border-stone-200">
+              <Activity className="w-12 h-12 text-stone-600 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-stone-900 mb-2">
                 No Jobs Found
               </h3>
-              <p className="text-midnight-500 dark:text-midnight-400">
+              <p className="text-stone-500">
                 Start a generation to see jobs here.
               </p>
             </div>
@@ -135,7 +135,7 @@ export default function JobsPage() {
                   'w-full text-left p-4 rounded-xl border transition-all',
                   isSelected
                     ? 'bg-youdle-50 dark:bg-youdle-900/20 border-youdle-300 dark:border-youdle-700'
-                    : 'bg-white dark:bg-midnight-800/50 border-midnight-200 dark:border-midnight-700 hover:border-youdle-300 dark:hover:border-youdle-700'
+                    : 'bg-white border-stone-200 hover:border-youdle-300 dark:hover:border-youdle-700'
                 )}
               >
                 <div className="flex items-center justify-between">
@@ -145,7 +145,7 @@ export default function JobsPage() {
                       job.status === 'running' ? 'bg-blue-100 dark:bg-blue-900/30' :
                       job.status === 'completed' ? 'bg-green-100 dark:bg-green-900/30' :
                       job.status === 'failed' ? 'bg-red-100 dark:bg-red-900/30' :
-                      'bg-midnight-100 dark:bg-midnight-800'
+                      'bg-midnight-100'
                     )}>
                       <StatusIcon className={cn(
                         'w-5 h-5',
@@ -153,15 +153,15 @@ export default function JobsPage() {
                         job.status === 'completed' && 'text-green-600 dark:text-green-400',
                         job.status === 'failed' && 'text-red-600 dark:text-red-400',
                         job.status === 'pending' && 'text-yellow-600 dark:text-yellow-400',
-                        job.status === 'cancelled' && 'text-midnight-500'
+                        job.status === 'cancelled' && 'text-stone-500'
                       )} />
                     </div>
                     
                     <div>
-                      <p className="font-medium text-midnight-900 dark:text-white">
+                      <p className="font-medium text-stone-900">
                         {job.config?.batch_size || 10} articles • {job.config?.model || 'gpt-4'}
                       </p>
-                      <p className="text-sm text-midnight-500 dark:text-midnight-400">
+                      <p className="text-sm text-stone-500">
                         {formatRelativeTime(job.started_at || job.completed_at)}
                       </p>
                     </div>
@@ -190,7 +190,7 @@ export default function JobsPage() {
                 </div>
                 
                 {job.result?.posts_generated !== undefined && (
-                  <p className="mt-2 text-sm text-midnight-500 dark:text-midnight-400">
+                  <p className="mt-2 text-sm text-stone-500">
                     Generated {job.result.posts_generated} posts
                   </p>
                 )}
@@ -208,14 +208,14 @@ export default function JobsPage() {
         {/* Job Details Panel */}
         <div>
           {selectedJob && jobDetails ? (
-            <div className="sticky top-8 rounded-2xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700 p-6">
-              <h3 className="text-lg font-semibold text-midnight-900 dark:text-white mb-4">
+            <div className="sticky top-8 rounded-2xl bg-white border border-stone-200 p-6">
+              <h3 className="text-lg font-semibold text-stone-900 mb-4">
                 Job Details
               </h3>
               
               <div className="space-y-4">
                 <div>
-                  <p className="text-xs text-midnight-500 dark:text-midnight-400 mb-1">Status</p>
+                  <p className="text-xs text-stone-500 mb-1">Status</p>
                   <span className={cn(
                     'px-2.5 py-1 rounded-lg text-sm font-medium',
                     getStatusColor(jobDetails.status)
@@ -225,31 +225,31 @@ export default function JobsPage() {
                 </div>
                 
                 <div>
-                  <p className="text-xs text-midnight-500 dark:text-midnight-400 mb-1">Started</p>
-                  <p className="text-sm text-midnight-900 dark:text-white">
+                  <p className="text-xs text-stone-500 mb-1">Started</p>
+                  <p className="text-sm text-stone-900">
                     {jobDetails.started_at ? formatDate(jobDetails.started_at) : 'Not started'}
                   </p>
                 </div>
                 
                 {jobDetails.completed_at && (
                   <div>
-                    <p className="text-xs text-midnight-500 dark:text-midnight-400 mb-1">Completed</p>
-                    <p className="text-sm text-midnight-900 dark:text-white">
+                    <p className="text-xs text-stone-500 mb-1">Completed</p>
+                    <p className="text-sm text-stone-900">
                       {formatDate(jobDetails.completed_at)}
                     </p>
                   </div>
                 )}
                 
                 <div>
-                  <p className="text-xs text-midnight-500 dark:text-midnight-400 mb-1">Configuration</p>
-                  <pre className="text-xs font-mono text-midnight-600 dark:text-midnight-300 bg-midnight-50 dark:bg-midnight-900 rounded-lg p-3 overflow-x-auto">
+                  <p className="text-xs text-stone-500 mb-1">Configuration</p>
+                  <pre className="text-xs font-mono text-midnight-600 bg-midnight-50 rounded-lg p-3 overflow-x-auto">
                     {JSON.stringify(jobDetails.config, null, 2)}
                   </pre>
                 </div>
                 
                 {jobPosts && jobPosts.count > 0 && (
                   <div>
-                    <p className="text-xs text-midnight-500 dark:text-midnight-400 mb-1">
+                    <p className="text-xs text-stone-500 mb-1">
                       Generated Posts ({jobPosts.count})
                     </p>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -257,9 +257,9 @@ export default function JobsPage() {
                         <a
                           key={post.id}
                           href={`/posts?id=${post.id}`}
-                          className="block p-2 rounded-lg bg-midnight-50 dark:bg-midnight-900 hover:bg-midnight-100 dark:hover:bg-midnight-800 transition-colors"
+                          className="block p-2 rounded-lg bg-midnight-50 hover:bg-midnight-100 dark:hover:bg-stone-100 transition-colors"
                         >
-                          <p className="text-sm text-midnight-900 dark:text-white line-clamp-1">
+                          <p className="text-sm text-stone-900 line-clamp-1">
                             {post.title}
                           </p>
                         </a>
@@ -279,9 +279,9 @@ export default function JobsPage() {
               </div>
             </div>
           ) : (
-            <div className="sticky top-8 rounded-2xl bg-white dark:bg-midnight-800/50 border border-midnight-200 dark:border-midnight-700 p-6 text-center">
-              <Eye className="w-8 h-8 text-midnight-400 mx-auto mb-2" />
-              <p className="text-sm text-midnight-500 dark:text-midnight-400">
+            <div className="sticky top-8 rounded-2xl bg-white border border-stone-200 p-6 text-center">
+              <Eye className="w-8 h-8 text-stone-600 mx-auto mb-2" />
+              <p className="text-sm text-stone-500">
                 Select a job to view details
               </p>
             </div>
