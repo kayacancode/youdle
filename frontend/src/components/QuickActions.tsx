@@ -42,51 +42,61 @@ export function QuickActions({ onSearchPreview, onStartGeneration, className }: 
   }
 
   return (
-    <div className={cn('rounded-2xl bg-white  border border-stone-200  p-6', className)}>
-      <h3 className="text-lg font-semibold text-stone-900  mb-4">Quick Actions</h3>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <div className={cn('rounded-2xl bg-white border border-stone-200 p-6', className)}>
+      <h3 className="text-lg font-semibold text-stone-900 mb-4">Quick Actions</h3>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <button
           onClick={handleStartGeneration}
           disabled={isGenerating}
           className={cn(
-            'flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-sm transition-all',
-            'bg-gradient-to-r from-youdle-500 to-youdle-600 text-stone-900',
-            'hover:from-youdle-600 hover:to-youdle-700 hover:shadow-lg hover:shadow-youdle-500/25',
-            'disabled:opacity-50 disabled:cursor-not-allowed'
+            'group relative flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-semibold text-sm transition-all duration-200',
+            'bg-white text-youdle-700',
+            'border-2 border-youdle-500 shadow-lg shadow-youdle-500/20',
+            'hover:bg-youdle-50 hover:shadow-xl hover:shadow-youdle-500/30 hover:scale-[1.02] hover:-translate-y-0.5',
+            'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:translate-y-0'
           )}
         >
-          {isGenerating ? (
-            <RefreshCw className="w-4 h-4 animate-spin" />
-          ) : (
-            <Play className="w-4 h-4" />
-          )}
-          Start Generation
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-youdle-100">
+            {isGenerating ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Play className="w-4 h-4" />
+            )}
+          </div>
+          <span>Start Generation</span>
         </button>
 
         <button
           onClick={handleSearchPreview}
           disabled={isSearching}
           className={cn(
-            'flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-sm transition-all',
-            'bg-midnight-100  text-midnight-700 ',
-            'hover:bg-midnight-200 dark:hover:bg-midnight-600',
-            'disabled:opacity-50 disabled:cursor-not-allowed'
+            'group relative flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-semibold text-sm transition-all duration-200',
+            'bg-white text-blue-700',
+            'border-2 border-blue-500 shadow-lg shadow-blue-500/20',
+            'hover:bg-blue-50 hover:shadow-xl hover:shadow-blue-500/30 hover:scale-[1.02] hover:-translate-y-0.5',
+            'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:translate-y-0'
           )}
         >
-          <Search className="w-4 h-4" />
-          Preview Search
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100">
+            <Search className="w-4 h-4" />
+          </div>
+          <span>Preview Search</span>
         </button>
 
         <a
           href="/review"
           className={cn(
-            'flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-sm transition-all',
-            'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
-            'hover:bg-purple-200 dark:hover:bg-purple-900/50'
+            'group relative flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-semibold text-sm transition-all duration-200',
+            'bg-white text-purple-700',
+            'border-2 border-purple-500 shadow-lg shadow-purple-500/20',
+            'hover:bg-purple-50 hover:shadow-xl hover:shadow-purple-500/30 hover:scale-[1.02] hover:-translate-y-0.5'
           )}
         >
-          Review Posts
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100">
+            <RefreshCw className="w-4 h-4" />
+          </div>
+          <span>Review Posts</span>
         </a>
       </div>
     </div>
