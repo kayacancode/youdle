@@ -618,6 +618,8 @@ def run_generation_legacy(
 # For CLI usage / GitHub Actions
 if __name__ == "__main__":
     import argparse
+    import os
+    import sys
 
     parser = argparse.ArgumentParser(description="Generate blog posts from articles")
     parser.add_argument("--model", default="gpt-4", help="OpenAI model to use")
@@ -625,30 +627,42 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=30, help="Number of articles to search")
     parser.add_argument("--days-back", type=int, default=30, help="Search window in days")
     parser.add_argument("--legacy", action="store_true", help="Use legacy orchestration (skip LangGraph)")
-    parser.add_argument("--json", action="store_true", help="Output summary as JSON only")
+    parser.add_argument("--json", action="store_true", help="Output only clean JSON summary (for GitHub Actions)")
 
     args = parser.parse_args()
 
-    result = run_generation(
-        model=args.model,
-        use_placeholder_images=args.placeholder_images,
-        batch_size=args.batch_size,
-        search_days_back=args.days_back,
-        use_langgraph=not args.legacy
-    )
-
-    # For GitHub Actions: output clean JSON summary when --json is used
+    # === CRITICAL: Silence all verbose logging in CI mode ===
     if args.json:
-        summary = {
-            "posts_generated": result.get("posts_generated", 0),
-            "posts_failed": result.get("posts_failed", 0),
-            "duration_seconds": result.get("duration_seconds", 0)
-        }
-        print(json.dumps(summary))
+        # Redirect all prints to nowhere during execution
+        sys.stdout = open(os.devnull, 'w')
+        sys.stderr = open(os.devnull, 'w')
+
+    try:
+        result = run_generation(
+            model=args.model,
+            use_placeholder_images=args.placeholder_images,
+            batch_size=args.batch_size,
+            search_days_back=args.days_back,
+            use_langgraph=not args.legacy
+        )
+    finally:
+        # Always restore stdout so we can print the final JSON
+        if args.json:
+            sys.stdout = sys.__stdout__
+            sys.stderr = sys.__stderr__
+
+            # Print ONLY the clean summary
+            summary = {
+                "posts_generated": result.get("posts_generated", 0),
+                "posts_failed": result.get("posts_failed", 0),
+                "duration_seconds": result.get("duration_seconds", 0)
+            }
+            print(json.dumps(summary))
+            sys.exit(0)  # Ensure clean exit
+
+    # For local runs (no --json): pretty output
+    if "final_state" in result:
+        clean_result = {k: v for k, v in result.items() if k != "final_state"}
+        print(json.dumps(clean_result, indent=2, default=str))
     else:
-        # Human-readable output (for local testing)
-        if "final_state" in result:
-            result_summary = {k: v for k, v in result.items() if k != "final_state"}
-            print(json.dumps(result_summary, indent=2, default=str))
-        else:
-            print(json.dumps(result, indent=2, default=str))
+        print(json.dumps(result, indent=2, default=str))
