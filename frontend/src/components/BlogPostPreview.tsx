@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ExternalLink, Eye, Code, Copy, Check, Trash2, Edit2 } from 'lucide-react'
+import { ExternalLink, Eye, Code, Copy, Check, Trash2, Edit2, Loader2, Globe } from 'lucide-react'
 import { cn, formatDate, getStatusColor, getCategoryColor, truncate, stripHtml } from '@/lib/utils'
 import { EditBlogPostModal } from './EditBlogPostModal'
 import type { BlogPostUpdate } from '@/lib/api'
@@ -15,6 +15,9 @@ interface BlogPost {
   status: string
   article_url: string
   created_at: string
+  blogger_post_id?: string | null
+  blogger_url?: string | null
+  blogger_published_at?: string | null
 }
 
 interface BlogPostPreviewProps {
@@ -22,13 +25,31 @@ interface BlogPostPreviewProps {
   onStatusChange?: (postId: string, status: string) => void
   onDelete?: (postId: string) => void
   onEdit?: (postId: string, updates: BlogPostUpdate) => Promise<void>
+  onPublish?: (postId: string) => Promise<void>
   className?: string
 }
 
-export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, className }: BlogPostPreviewProps) {
+export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, onPublish, className }: BlogPostPreviewProps) {
   const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview')
   const [copied, setCopied] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
+
+  const handlePublish = async () => {
+    if (!onPublish) return
+    setIsPublishing(true)
+    setPublishError(null)
+    try {
+      await onPublish(post.id)
+    } catch (error) {
+      setPublishError(error instanceof Error ? error.message : 'Failed to publish')
+    } finally {
+      setIsPublishing(false)
+    }
+  }
+
+  const isPublishedToBlogger = !!post.blogger_post_id
 
   const handleCopyHtml = async () => {
     await navigator.clipboard.writeText(post.html_content)
@@ -131,6 +152,17 @@ export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, classN
               Source
             </a>
           )}
+          {post.blogger_url && (
+            <a
+              href={post.blogger_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-green-600 hover:text-green-700 hover:bg-green-50 transition-all"
+            >
+              <Globe className="w-3 h-3" />
+              View on Blogger
+            </a>
+          )}
         </div>
       </div>
 
@@ -149,55 +181,83 @@ export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, classN
       </div>
 
       {/* Actions */}
-      {onStatusChange && (
-        <div className="flex items-center justify-between gap-2 p-4 border-t border-stone-200 bg-stone-50">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onStatusChange(post.id, 'draft')}
-              disabled={post.status === 'draft'}
-              className={cn(
-                'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                post.status === 'draft'
-                  ? 'bg-stone-200 text-stone-500 cursor-not-allowed'
-                  : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-              )}
-            >
-              Draft
-            </button>
-            <button
-              onClick={() => onStatusChange(post.id, 'reviewed')}
-              disabled={post.status === 'reviewed'}
-              className={cn(
-                'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                post.status === 'reviewed'
-                  ? 'bg-purple-200 text-purple-500 cursor-not-allowed'
-                  : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-              )}
-            >
-              Mark Reviewed
-            </button>
-            <button
-              onClick={() => onStatusChange(post.id, 'published')}
-              disabled={post.status === 'published'}
-              className={cn(
-                'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                post.status === 'published'
-                  ? 'bg-green-200 text-green-500 cursor-not-allowed'
-                  : 'bg-green-100 text-green-700 hover:bg-green-200'
-              )}
-            >
-              Publish
-            </button>
-          </div>
-          {onDelete && (
-            <button
-              onClick={() => onDelete(post.id)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-red-100 text-red-700 hover:bg-red-200"
-            >
-              <Trash2 className="w-3 h-3" />
-              Delete
-            </button>
+      {(onStatusChange || onPublish) && (
+        <div className="flex flex-col gap-2 p-4 border-t border-stone-200 bg-stone-50">
+          {publishError && (
+            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+              {publishError}
+            </div>
           )}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              {onStatusChange && (
+                <>
+                  <button
+                    onClick={() => onStatusChange(post.id, 'draft')}
+                    disabled={post.status === 'draft' || isPublishing}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                      post.status === 'draft'
+                        ? 'bg-stone-200 text-stone-500 cursor-not-allowed'
+                        : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                    )}
+                  >
+                    Draft
+                  </button>
+                  <button
+                    onClick={() => onStatusChange(post.id, 'reviewed')}
+                    disabled={post.status === 'reviewed' || isPublishing}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                      post.status === 'reviewed'
+                        ? 'bg-purple-200 text-purple-500 cursor-not-allowed'
+                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                    )}
+                  >
+                    Mark Reviewed
+                  </button>
+                </>
+              )}
+              {onPublish && (
+                <button
+                  onClick={handlePublish}
+                  disabled={isPublishedToBlogger || isPublishing}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                    isPublishedToBlogger
+                      ? 'bg-green-200 text-green-500 cursor-not-allowed'
+                      : isPublishing
+                        ? 'bg-green-100 text-green-700 cursor-wait'
+                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                  )}
+                >
+                  {isPublishing ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : isPublishedToBlogger ? (
+                    <>
+                      <Check className="w-3 h-3" />
+                      Published
+                    </>
+                  ) : (
+                    'Publish to Blogger'
+                  )}
+                </button>
+              )}
+            </div>
+            {onDelete && (
+              <button
+                onClick={() => onDelete(post.id)}
+                disabled={isPublishing}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-red-100 text-red-700 hover:bg-red-200"
+              >
+                <Trash2 className="w-3 h-3" />
+                Delete
+              </button>
+            )}
+          </div>
         </div>
       )}
 

@@ -374,3 +374,92 @@ async def update_blog_post(post_id: str, updates: BlogPostUpdate):
         raise HTTPException(status_code=500, detail=f"Failed to update post: {str(e)}")
 
 
+@router.get("/blogger/status")
+async def get_blogger_status():
+    """
+    Check if Blogger API is configured and ready.
+    """
+    try:
+        from blogger_client import get_blogger_client
+        client = get_blogger_client()
+
+        return {
+            "configured": client.is_configured(),
+            "blog_id": client.blog_id if client.is_configured() else None,
+            "message": "Blogger API is configured" if client.is_configured() else "Blogger API not configured. Set BLOGGER_BLOG_ID, BLOGGER_CLIENT_ID, BLOGGER_CLIENT_SECRET, and BLOGGER_REFRESH_TOKEN environment variables."
+        }
+    except Exception as e:
+        return {
+            "configured": False,
+            "blog_id": None,
+            "message": f"Error checking Blogger status: {str(e)}"
+        }
+
+
+@router.post("/posts/{post_id}/publish")
+async def publish_post_to_blogger(post_id: str):
+    """
+    Publish a blog post to Blogger.
+    This actually publishes the post to the connected Blogger blog.
+    """
+    try:
+        from supabase_storage import get_supabase_client
+        from blogger_client import get_blogger_client
+
+        supabase = get_supabase_client()
+        blogger = get_blogger_client()
+
+        # Check if Blogger is configured
+        if not blogger.is_configured():
+            raise HTTPException(
+                status_code=503,
+                detail="Blogger API not configured. Please set BLOGGER_BLOG_ID, BLOGGER_CLIENT_ID, BLOGGER_CLIENT_SECRET, and BLOGGER_REFRESH_TOKEN environment variables."
+            )
+
+        # Get the post from database
+        result = supabase.client.table("blog_posts").select("*").eq("id", post_id).single().execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Post not found")
+
+        post = result.data
+
+        # Check if already published to Blogger
+        if post.get("blogger_post_id"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Post already published to Blogger. URL: {post.get('blogger_url')}"
+            )
+
+        # Publish to Blogger
+        labels = [post.get("category", "SHOPPERS")]
+
+        blogger_result = blogger.publish_post(
+            title=post["title"],
+            html_content=post["html_content"],
+            labels=labels,
+            is_draft=False
+        )
+
+        # Update the database with Blogger info
+        update_result = supabase.client.table("blog_posts").update({
+            "status": "published",
+            "blogger_post_id": blogger_result["blogger_post_id"],
+            "blogger_url": blogger_result["blogger_url"],
+            "blogger_published_at": blogger_result.get("published_at") or datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", post_id).execute()
+
+        return {
+            "message": "Post published to Blogger successfully",
+            "blogger_post_id": blogger_result["blogger_post_id"],
+            "blogger_url": blogger_result["blogger_url"],
+            "post": update_result.data[0] if update_result.data else None
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to publish to Blogger: {str(e)}")
+
+
