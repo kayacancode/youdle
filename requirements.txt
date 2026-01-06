@@ -9,7 +9,9 @@ aiofiles>=23.0.0
 google-api-python-client>=2.100.0
 google-auth>=2.23.0
 google-auth-oauthlib>=1.1.0
-google-generativeai>=0.3.0
+# DEPRECATED: This package is EOL. Migrate to google-genai in future.
+# Pinned to known working version for stability
+google-generativeai==0.8.3
 
 # Supabase for storage and database
 supabase>=2.0.0
