@@ -656,21 +656,29 @@ def assemble_html_node(state: BlogPostState) -> Dict[str, Any]:
 
 def save_posts_node(state: BlogPostState) -> Dict[str, Any]:
     """
-    Node: Save final blog posts to filesystem.
+    Node: Save final blog posts to filesystem and Supabase database.
     """
     logs = [f"[{datetime.now().isoformat()}] Saving blog posts..."]
-    
+
     final_posts = state.get("final_posts", [])
-    
+
     if not final_posts:
         return {"saved_files": [], "logs": logs + ["No posts to save"]}
-    
+
     # Ensure output directory exists
     os.makedirs(BLOG_POSTS_DIR, exist_ok=True)
-    
+
+    # Get Supabase client for database insertion
+    try:
+        supabase = get_supabase_client()
+    except Exception as e:
+        supabase = None
+        logs.append(f"  ⚠ Could not connect to Supabase: {str(e)}")
+
     saved_files = []
+    db_inserted = 0
     processed_urls = state.get("processed_urls", {}).copy()
-    
+
     for post in final_posts:
         try:
             # Generate filename
@@ -706,19 +714,39 @@ def save_posts_node(state: BlogPostState) -> Dict[str, Any]:
                 json.dump(metadata, f, indent=2, default=str)
             
             saved_files.append(html_path)
-            
+
             # Update processed URLs cache
             processed_urls[post_id] = {
                 "date": datetime.now().strftime("%Y-%m-%d"),
                 "blog_post_id": post_id
             }
-            
+
+            # Insert into Supabase database
+            if supabase:
+                try:
+                    from uuid import uuid4
+                    supabase.table("blog_posts").insert({
+                        "id": str(uuid4()),
+                        "title": post.get("title", ""),
+                        "html_content": post.get("html", ""),
+                        "image_url": post.get("image_url", ""),
+                        "category": post.get("category", "SHOPPERS").upper(),
+                        "status": "draft",
+                        "article_url": post.get("original_link", ""),
+                        "created_at": datetime.now().isoformat()
+                    }).execute()
+                    db_inserted += 1
+                except Exception as db_err:
+                    logs.append(f"  ⚠ DB insert failed for {post.get('title', 'unknown')[:30]}: {str(db_err)}")
+
             logs.append(f"  ✓ Saved {filename}.html")
-            
+
         except Exception as e:
             logs.append(f"  ✗ Error saving post: {str(e)}")
     
     logs.append(f"Saved {len(saved_files)} blog posts to {BLOG_POSTS_DIR}/")
+    if supabase:
+        logs.append(f"Inserted {db_inserted} posts into Supabase database")
     
     return {
         "saved_files": saved_files,
