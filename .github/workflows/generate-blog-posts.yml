@@ -86,6 +86,25 @@ jobs:
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Generated posts are available in the artifacts." >> $GITHUB_STEP_SUMMARY
-
+      - name: Debug run + secrets presence
+        env:
+          EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          echo "GITHUB_EVENT_NAME: $GITHUB_EVENT_NAME"
+          echo "GITHUB_ACTOR: $GITHUB_ACTOR"
+          echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
+          echo "GITHUB_REF: $GITHUB_REF"
+          echo ""
+          for s in EXA_API_KEY OPENAI_API_KEY GEMINI_API_KEY SUPABASE_URL SUPABASE_KEY; do
+            if [ -z "${!s}" ]; then
+              echo "$s: EMPTY"
+            else
+              echo "$s: SET"
+            fi
+          done
 
 
