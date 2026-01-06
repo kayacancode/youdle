@@ -15,43 +15,44 @@ except ImportError:
     pass
 
 
-def check_environment():
+def check_environment(quiet=False):
     """Check that required environment variables are set."""
     required_vars = [
         ("EXA_API_KEY", "Exa search API"),
         ("OPENAI_API_KEY", "OpenAI blog generation")
     ]
-    
+
     optional_vars = [
         ("GEMINI_API_KEY", "Gemini image generation"),
         ("SUPABASE_URL", "Supabase storage"),
         ("SUPABASE_KEY", "Supabase storage")
     ]
-    
+
     missing_required = []
     missing_optional = []
-    
+
     for var, description in required_vars:
         if not os.getenv(var):
             missing_required.append(f"  - {var}: {description}")
-    
+
     for var, description in optional_vars:
         if not os.getenv(var):
             missing_optional.append(f"  - {var}: {description}")
-    
+
     if missing_required:
-        print("ERROR: Missing required environment variables:")
-        for var in missing_required:
-            print(var)
-        print("\nPlease set these variables in your .env file or environment.")
+        if not quiet:
+            print("ERROR: Missing required environment variables:")
+            for var in missing_required:
+                print(var)
+            print("\nPlease set these variables in your .env file or environment.")
         return False
-    
-    if missing_optional:
+
+    if missing_optional and not quiet:
         print("WARNING: Missing optional environment variables:")
         for var in missing_optional:
             print(var)
         print("\nSome features may be limited.\n")
-    
+
     return True
 
 
@@ -126,9 +127,9 @@ Examples:
     )
     
     args = parser.parse_args()
-    
+
     # Check environment
-    if not check_environment():
+    if not check_environment(quiet=args.json):
         sys.exit(1)
     
     # Import after environment check
@@ -167,16 +168,17 @@ Examples:
                 print(f"  {i}. {item.get('title', 'Unknown')[:60]}...")
         
         return
-    
+
     # Run the generation workflow
-    print("\n" + "=" * 60)
-    print("YOUDLE BLOG POST GENERATOR")
-    print("=" * 60)
-    print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Model: {args.model}")
-    print(f"Output: {args.output}/")
-    print()
-    
+    if not args.json:
+        print("\n" + "=" * 60)
+        print("YOUDLE BLOG POST GENERATOR")
+        print("=" * 60)
+        print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Model: {args.model}")
+        print(f"Output: {args.output}/")
+        print()
+
     try:
         result = run_generation(
             model=args.model,
