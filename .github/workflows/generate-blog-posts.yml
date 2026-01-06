@@ -150,24 +150,14 @@ jobs:
             echo "- **Posts Failed:** Unknown" >> $GITHUB_STEP_SUMMARY
             echo "- **Duration:** Unknown" >> $GITHUB_STEP_SUMMARY
           else
-            # Safely extract posts_generated
-            posts_generated=$(python - << 'PY' < generation_result.json
-          import sys, json
-          try:
-              data = json.load(sys.stdin)
-              print(data.get('posts_generated', 0))
-          except json.JSONDecodeError:
-              print('INVALID_JSON')
-          except Exception:
-              print('ERROR')
-          PY
-            )
+            # Safely extract values from JSON
+            posts_generated=$(cat generation_result.json | python -c "import sys, json; d=json.load(sys.stdin); print(d.get('posts_generated', 0))" 2>/dev/null || echo "ERROR")
 
-            if [[ "$posts_generated" == "INVALID_JSON" || "$posts_generated" == "ERROR" ]]; then
+            if [[ "$posts_generated" == "ERROR" ]]; then
               echo "- **Error:** generation_result.json contains invalid JSON." >> $GITHUB_STEP_SUMMARY
               echo "- **Posts Generated:** Unknown" >> $GITHUB_STEP_SUMMARY
             else
-              posts_failed=$(cat generation_result.json | python -c "import sys, json; print(json.load(sys.stdin).get('posts_failed', 0))")
+              posts_failed=$(cat generation_result.json | python -c "import sys, json; print(len(json.load(sys.stdin).get('errors', [])))")
               duration=$(cat generation_result.json | python -c "import sys, json; print(json.load(sys.stdin).get('duration_seconds', 0))")
               echo "- **Posts Generated:** $posts_generated" >> $GITHUB_STEP_SUMMARY
               echo "- **Posts Failed:** $posts_failed" >> $GITHUB_STEP_SUMMARY
