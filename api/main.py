@@ -12,8 +12,10 @@ from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Add parent directory to path so we can import existing modules
+# Add parent directory to path so we can import existing modules (for supabase_storage, etc.)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add current directory to path so we can import routes
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 app = FastAPI(
     title="Youdle Blog Agent API",
