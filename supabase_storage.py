@@ -434,10 +434,25 @@ class SupabaseStorage:
             return []
 
 
-def get_supabase_client() -> Optional[SupabaseStorage]:
+def get_supabase_client() -> Optional[Client]:
+    """
+    Get a Supabase client instance.
+
+    Returns:
+        Supabase Client instance or None if credentials not set
+    """
+    try:
+        storage = SupabaseStorage()
+        return storage.client
+    except ValueError as e:
+        print(f"Warning: {e}")
+        return None
+
+
+def get_supabase_storage() -> Optional[SupabaseStorage]:
     """
     Get a Supabase storage client instance.
-    
+
     Returns:
         SupabaseStorage instance or None if credentials not set
     """

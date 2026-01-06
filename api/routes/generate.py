@@ -56,7 +56,7 @@ def run_generation_task(job_id: str, config: dict):
         supabase = get_supabase_client()
         
         # Update job status to running
-        supabase.client.table("job_queue").update({
+        supabase.table("job_queue").update({
             "status": "running",
             "started_at": datetime.utcnow().isoformat()
         }).eq("id", job_id).execute()
@@ -123,7 +123,7 @@ def run_generation_task(job_id: str, config: dict):
                 # Get article URL (different key names)
                 article_url = post.get("original_link", "") or post.get("source_url", "")
                 
-                supabase.client.table("blog_posts").insert({
+                supabase.table("blog_posts").insert({
                     "id": str(uuid4()),
                     "title": post.get("title", ""),
                     "html_content": html_content,
@@ -146,7 +146,7 @@ def run_generation_task(job_id: str, config: dict):
         # #endregion
         
         # Update job status to completed
-        supabase.client.table("job_queue").update({
+        supabase.table("job_queue").update({
             "status": "completed",
             "completed_at": datetime.utcnow().isoformat(),
             "result": {
@@ -161,7 +161,7 @@ def run_generation_task(job_id: str, config: dict):
             from supabase_storage import get_supabase_client
             supabase = get_supabase_client()
             if supabase:
-                supabase.client.table("job_queue").update({
+                supabase.table("job_queue").update({
                     "status": "failed",
                     "completed_at": datetime.utcnow().isoformat(),
                     "error": str(e)
@@ -197,7 +197,7 @@ async def run_generation_endpoint(
         job_id = str(uuid4())
         
         # Create job record
-        supabase.client.table("job_queue").insert({
+        supabase.table("job_queue").insert({
             "id": job_id,
             "status": "pending",
             "config": config.model_dump(),
@@ -240,7 +240,7 @@ async def get_blog_posts(
         from supabase_storage import get_supabase_client
         supabase = get_supabase_client()
         
-        query = supabase.client.table("blog_posts").select("*").order("created_at", desc=True)
+        query = supabase.table("blog_posts").select("*").order("created_at", desc=True)
         
         if status:
             query = query.eq("status", status)
@@ -266,7 +266,7 @@ async def get_blog_post(post_id: str):
         from supabase_storage import get_supabase_client
         supabase = get_supabase_client()
         
-        result = supabase.client.table("blog_posts").select("*").eq("id", post_id).single().execute()
+        result = supabase.table("blog_posts").select("*").eq("id", post_id).single().execute()
         
         if not result.data:
             raise HTTPException(status_code=404, detail="Post not found")
@@ -294,7 +294,7 @@ async def update_post_status(
         from supabase_storage import get_supabase_client
         supabase = get_supabase_client()
         
-        result = supabase.client.table("blog_posts").update({
+        result = supabase.table("blog_posts").update({
             "status": status,
             "updated_at": datetime.utcnow().isoformat()
         }).eq("id", post_id).execute()
@@ -319,7 +319,7 @@ async def delete_blog_post(post_id: str):
         from supabase_storage import get_supabase_client
         supabase = get_supabase_client()
 
-        result = supabase.client.table("blog_posts").delete().eq("id", post_id).execute()
+        result = supabase.table("blog_posts").delete().eq("id", post_id).execute()
 
         return {"message": "Post deleted", "id": post_id}
 
@@ -361,7 +361,7 @@ async def update_blog_post(post_id: str, updates: BlogPostUpdate):
         # Always update the updated_at timestamp
         update_data["updated_at"] = datetime.utcnow().isoformat()
 
-        result = supabase.client.table("blog_posts").update(update_data).eq("id", post_id).execute()
+        result = supabase.table("blog_posts").update(update_data).eq("id", post_id).execute()
 
         if not result.data:
             raise HTTPException(status_code=404, detail="Post not found")
@@ -417,7 +417,7 @@ async def publish_post_to_blogger(post_id: str):
             )
 
         # Get the post from database
-        result = supabase.client.table("blog_posts").select("*").eq("id", post_id).single().execute()
+        result = supabase.table("blog_posts").select("*").eq("id", post_id).single().execute()
 
         if not result.data:
             raise HTTPException(status_code=404, detail="Post not found")
@@ -442,7 +442,7 @@ async def publish_post_to_blogger(post_id: str):
         )
 
         # Update the database with Blogger info
-        update_result = supabase.client.table("blog_posts").update({
+        update_result = supabase.table("blog_posts").update({
             "status": "published",
             "blogger_post_id": blogger_result["blogger_post_id"],
             "blogger_url": blogger_result["blogger_url"],

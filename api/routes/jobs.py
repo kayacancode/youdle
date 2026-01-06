@@ -70,14 +70,14 @@ async def list_jobs(
         # #endregion
         
         # Get total count
-        count_query = supabase.client.table("job_queue").select("id", count="exact")
+        count_query = supabase.table("job_queue").select("id", count="exact")
         if status:
             count_query = count_query.eq("status", status)
         count_result = count_query.execute()
         total = count_result.count if count_result.count else 0
         
         # Get jobs
-        query = supabase.client.table("job_queue").select("*").order("started_at", desc=True)
+        query = supabase.table("job_queue").select("*").order("started_at", desc=True)
         
         if status:
             query = query.eq("status", status)
@@ -111,7 +111,7 @@ async def get_job(job_id: str):
         from supabase_storage import get_supabase_client
         supabase = get_supabase_client()
         
-        result = supabase.client.table("job_queue").select("*").eq("id", job_id).single().execute()
+        result = supabase.table("job_queue").select("*").eq("id", job_id).single().execute()
         
         if not result.data:
             raise HTTPException(status_code=404, detail="Job not found")
@@ -133,7 +133,7 @@ async def get_job_posts(job_id: str):
         from supabase_storage import get_supabase_client
         supabase = get_supabase_client()
         
-        result = supabase.client.table("blog_posts").select("*").eq("job_id", job_id).execute()
+        result = supabase.table("blog_posts").select("*").eq("job_id", job_id).execute()
         
         return {
             "job_id": job_id,
@@ -156,7 +156,7 @@ async def cancel_job(job_id: str):
         supabase = get_supabase_client()
         
         # Check current status
-        job = supabase.client.table("job_queue").select("status").eq("id", job_id).single().execute()
+        job = supabase.table("job_queue").select("status").eq("id", job_id).single().execute()
         
         if not job.data:
             raise HTTPException(status_code=404, detail="Job not found")
@@ -165,7 +165,7 @@ async def cancel_job(job_id: str):
             raise HTTPException(status_code=400, detail=f"Cannot cancel job with status: {job.data['status']}")
         
         # Update status to cancelled
-        result = supabase.client.table("job_queue").update({
+        result = supabase.table("job_queue").update({
             "status": "cancelled",
             "completed_at": datetime.utcnow().isoformat(),
             "error": "Cancelled by user"
@@ -189,7 +189,7 @@ async def get_job_logs(job_id: str):
         supabase = get_supabase_client()
         
         # Get job to check logs in result
-        result = supabase.client.table("job_queue").select("*").eq("id", job_id).single().execute()
+        result = supabase.table("job_queue").select("*").eq("id", job_id).single().execute()
         
         if not result.data:
             raise HTTPException(status_code=404, detail="Job not found")
@@ -229,7 +229,7 @@ async def cleanup_old_jobs(
         cutoff_date = (datetime.utcnow() - timedelta(days=days_old)).isoformat()
         
         # Delete old completed and failed jobs
-        result = supabase.client.table("job_queue").delete().lt(
+        result = supabase.table("job_queue").delete().lt(
             "completed_at", cutoff_date
         ).in_("status", ["completed", "failed", "cancelled"]).execute()
         

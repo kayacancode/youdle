@@ -51,8 +51,11 @@ async def preview_search(
     """
     try:
         from zap_exa_ranker import main as search_articles
-        
-        result = search_articles(batch_size=batch_size, days_back=days_back)
+
+        result = search_articles({
+            "batch_size": batch_size,
+            "search_days_back": days_back
+        })
         
         # Filter by category if specified
         if category:
@@ -79,7 +82,7 @@ async def get_article(article_id: str):
         from supabase_storage import get_supabase_client
         supabase = get_supabase_client()
         
-        result = supabase.client.table("articles").select("*").eq("id", article_id).single().execute()
+        result = supabase.table("articles").select("*").eq("id", article_id).single().execute()
         
         if not result.data:
             raise HTTPException(status_code=404, detail="Article not found")
@@ -104,7 +107,7 @@ async def get_recent_articles(
         from supabase_storage import get_supabase_client
         supabase = get_supabase_client()
         
-        query = supabase.client.table("articles").select("*").order("created_at", desc=True).limit(limit)
+        query = supabase.table("articles").select("*").order("created_at", desc=True).limit(limit)
         
         if category:
             query = query.eq("category", category.upper())
