@@ -2,6 +2,7 @@
 # LangGraph StateGraph for blog post generation workflow orchestration
 
 import os
+import sys
 import hashlib
 import asyncio
 from datetime import datetime
@@ -822,32 +823,32 @@ def run_blog_post_workflow(
     # Run the workflow
     final_state = app.invoke(initial_state)
     
-    # Print logs
+    # Print logs to stderr to avoid contaminating JSON output
     for log in final_state.get("logs", []):
-        print(log)
-    
-    # Print errors
+        print(log, file=sys.stderr)
+
+    # Print errors to stderr
     if final_state.get("errors"):
-        print("\n⚠️ Errors:")
+        print("\n⚠️ Errors:", file=sys.stderr)
         for error in final_state["errors"]:
-            print(f"  - {error}")
-    
+            print(f"  - {error}", file=sys.stderr)
+
     # Calculate duration
     start_time_str = final_state.get("start_time") or datetime.now().isoformat()
     end_time_str = final_state.get("end_time") or datetime.now().isoformat()
     start_time = datetime.fromisoformat(start_time_str)
     end_time = datetime.fromisoformat(end_time_str)
     duration = (end_time - start_time).total_seconds()
-    
-    # Print summary
-    print("\n" + "=" * 60)
-    print("SUMMARY")
-    print("=" * 60)
-    print(f"Posts generated: {len(final_state.get('final_posts', []))}")
-    print(f"Files saved: {len(final_state.get('saved_files', []))}")
-    print(f"Errors: {len(final_state.get('errors', []))}")
-    print(f"Duration: {duration:.2f} seconds")
-    print(f"Output: {BLOG_POSTS_DIR}/")
+
+    # Print summary to stderr
+    print("\n" + "=" * 60, file=sys.stderr)
+    print("SUMMARY", file=sys.stderr)
+    print("=" * 60, file=sys.stderr)
+    print(f"Posts generated: {len(final_state.get('final_posts', []))}", file=sys.stderr)
+    print(f"Files saved: {len(final_state.get('saved_files', []))}", file=sys.stderr)
+    print(f"Errors: {len(final_state.get('errors', []))}", file=sys.stderr)
+    print(f"Duration: {duration:.2f} seconds", file=sys.stderr)
+    print(f"Output: {BLOG_POSTS_DIR}/", file=sys.stderr)
     
     # Return summary
     return {
