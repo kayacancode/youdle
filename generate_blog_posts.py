@@ -191,7 +191,7 @@ Examples:
         if args.json:
             # Exclude full state from JSON output for readability
             result_output = {k: v for k, v in result.items() if k != "final_state"}
-            print(json.dumps(result_output, indent=2, default=str))
+            print(json.dumps(result_output, indent=2, default=str), flush=True)
         else:
             print("\n" + "=" * 60)
             print("COMPLETE")
@@ -235,7 +235,7 @@ Examples:
                 "posts_failed": 0,
                 "duration_seconds": 0
             }
-            print(json.dumps(error_result, indent=2))
+            print(json.dumps(error_result, indent=2), flush=True)
         else:
             print("\n\nInterrupted by user", file=sys.stderr)
         sys.exit(130)
@@ -249,7 +249,7 @@ Examples:
                 "posts_failed": 0,
                 "duration_seconds": 0
             }
-            print(json.dumps(error_result, indent=2))
+            print(json.dumps(error_result, indent=2), flush=True)
         else:
             print(f"\nERROR: {e}", file=sys.stderr)
             if args.verbose:
