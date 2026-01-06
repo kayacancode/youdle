@@ -10,6 +10,7 @@
 # - run_generation_legacy(): Fallback to async orchestration
 
 import os
+import sys
 import json
 import asyncio
 import hashlib
@@ -28,7 +29,7 @@ try:
     from blog_post_graph import run_blog_post_workflow, create_blog_post_graph
     LANGGRAPH_AVAILABLE = True
 except ImportError as e:
-    print(f"Warning: LangGraph not available ({e}), using legacy orchestration")
+    print(f"Warning: LangGraph not available ({e}), using legacy orchestration", file=sys.stderr)
     LANGGRAPH_AVAILABLE = False
 
 # Import components
@@ -100,7 +101,7 @@ class BlogPostOrchestrator:
             with open(CACHE_FILE, "w") as f:
                 json.dump(self._cache, f, indent=2)
         except Exception as e:
-            print(f"Warning: Could not save cache: {e}")
+            print(f"Warning: Could not save cache: {e}", file=sys.stderr)
     
     def _get_url_hash(self, url: str) -> str:
         """Generate a hash for a URL."""
