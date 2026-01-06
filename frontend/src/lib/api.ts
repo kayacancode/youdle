@@ -69,6 +69,19 @@ export interface BlogPostUpdate {
   category?: 'SHOPPERS' | 'RECALL'
 }
 
+export interface BloggerStatus {
+  configured: boolean
+  blog_id: string | null
+  message: string
+}
+
+export interface PublishResponse {
+  message: string
+  blogger_post_id: string
+  blogger_url: string
+  post: any
+}
+
 // API Client class
 class ApiClient {
   private baseUrl: string
@@ -177,6 +190,17 @@ class ApiClient {
     return this.request(`/api/generate/posts/${postId}`, {
       method: 'PATCH',
       body: JSON.stringify(updates),
+    })
+  }
+
+  // Blogger Integration
+  async getBloggerStatus(): Promise<BloggerStatus> {
+    return this.request('/api/generate/blogger/status')
+  }
+
+  async publishToBlogger(postId: string): Promise<PublishResponse> {
+    return this.request(`/api/generate/posts/${postId}/publish`, {
+      method: 'POST',
     })
   }
 

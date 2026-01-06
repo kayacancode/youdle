@@ -39,6 +39,10 @@ CREATE TABLE blog_posts (
     status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'reviewed', 'published')),
     article_url TEXT,
     job_id UUID REFERENCES job_queue(id) ON DELETE SET NULL,
+    -- Blogger integration fields
+    blogger_post_id TEXT,
+    blogger_url TEXT,
+    blogger_published_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
