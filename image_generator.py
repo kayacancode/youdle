@@ -77,23 +77,10 @@ class ImageGenerator:
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY environment variable is not set")
 
-        # Initialize client. If your installed version of google-generativeai uses
-        # a different initialization API, adjust accordingly.
-        # Example: genai.configure(api_key=...) vs genai.Client(...)
-        try:
-            # try Client first (newer pattern)
-            self.client = genai.Client(api_key=self.api_key)
-        except Exception:
-            # fallback: some versions use configure() and top-level functions
-            try:
-                genai.configure(api_key=self.api_key)
-                self.client = genai
-            except Exception as e:
-                raise RuntimeError(
-                    "Failed to initialize google.generativeai client: " + str(e)
-                )
-
-        self.model_name = "gemini-3-pro-image-preview"
+        # Initialize with google-generativeai
+        genai.configure(api_key=self.api_key)
+        self.model_name = "gemini-2.0-flash-exp"  # Model with image generation capability
+        self.model = genai.GenerativeModel(self.model_name)
 
     def _create_image_prompt(
         self,
@@ -128,24 +115,12 @@ class ImageGenerator:
         prompt = self._create_image_prompt(title, theme, size)
 
         try:
-            print(f"[ImageGenerator] Generating image with model: {self.model_name}")
-            print(f"[ImageGenerator] Prompt: {prompt[:100]}...")
+            print(f"[ImageGenerator] Generating image with model: {self.model_name}", flush=True)
+            print(f"[ImageGenerator] Prompt: {prompt[:100]}...", flush=True)
 
-            # Use generate_content for image generation (not generate_images) if supported
-            if hasattr(self.client, "models") and hasattr(self.client.models, "generate_content"):
-                response = self.client.models.generate_content(
-                    model=self.model_name,
-                    contents=prompt
-                )
-            else:
-                # If client is configured differently, attempt a generic call
-                # (this branch may need adjustment depending on client version)
-                response = self.client.generate_content(
-                    model=self.model_name,
-                    contents=prompt
-                )
+            response = self.model.generate_content(prompt)
 
-            print(f"[ImageGenerator] Response received: {type(response)}")
+            print(f"[ImageGenerator] Response received: {type(response)}", flush=True)
 
             # Extract image from response parts
             if getattr(response, "candidates", None):
