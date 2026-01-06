@@ -41,17 +41,17 @@ def check_environment(quiet=False):
 
     if missing_required:
         if not quiet:
-            print("ERROR: Missing required environment variables:")
+            print("ERROR: Missing required environment variables:", file=sys.stderr)
             for var in missing_required:
-                print(var)
-            print("\nPlease set these variables in your .env file or environment.")
+                print(var, file=sys.stderr)
+            print("\nPlease set these variables in your .env file or environment.", file=sys.stderr)
         return False
 
     if missing_optional and not quiet:
-        print("WARNING: Missing optional environment variables:")
+        print("WARNING: Missing optional environment variables:", file=sys.stderr)
         for var in missing_optional:
-            print(var)
-        print("\nSome features may be limited.\n")
+            print(var, file=sys.stderr)
+        print("\nSome features may be limited.\n", file=sys.stderr)
 
     return True
 
@@ -187,7 +187,7 @@ Examples:
             search_days_back=args.days_back,
             use_langgraph=not args.legacy
         )
-        
+
         if args.json:
             # Exclude full state from JSON output for readability
             result_output = {k: v for k, v in result.items() if k != "final_state"}
@@ -196,7 +196,7 @@ Examples:
             print("\n" + "=" * 60)
             print("COMPLETE")
             print("=" * 60)
-            
+
             if result.get("success"):
                 # Handle both LangGraph and legacy result formats
                 posts_generated = result.get("posts_generated", 0)
@@ -204,7 +204,7 @@ Examples:
                 posts_failed = result.get("posts_failed", len(result.get("errors", [])))
                 duration = result.get("duration_seconds", 0)
                 output_dir = result.get("output_directory", args.output)
-                
+
                 print(f"✓ Generated {posts_generated} blog posts")
                 if posts_failed:
                     print(f"✗ Failed: {posts_failed}")
@@ -224,15 +224,37 @@ Examples:
                 for error in errors[:5]:
                     print(f"  - {error}")
                 sys.exit(1)
-        
+
     except KeyboardInterrupt:
-        print("\n\nInterrupted by user")
+        if args.json:
+            # Output valid JSON even on interrupt
+            error_result = {
+                "success": False,
+                "error": "Interrupted by user",
+                "posts_generated": 0,
+                "posts_failed": 0,
+                "duration_seconds": 0
+            }
+            print(json.dumps(error_result, indent=2))
+        else:
+            print("\n\nInterrupted by user", file=sys.stderr)
         sys.exit(130)
     except Exception as e:
-        print(f"\nERROR: {e}")
-        if args.verbose:
-            import traceback
-            traceback.print_exc()
+        if args.json:
+            # Output valid JSON even on error
+            error_result = {
+                "success": False,
+                "error": str(e),
+                "posts_generated": 0,
+                "posts_failed": 0,
+                "duration_seconds": 0
+            }
+            print(json.dumps(error_result, indent=2))
+        else:
+            print(f"\nERROR: {e}", file=sys.stderr)
+            if args.verbose:
+                import traceback
+                traceback.print_exc()
         sys.exit(1)
 
 
