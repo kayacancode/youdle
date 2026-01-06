@@ -1,13 +1,9 @@
-# GitHub Actions workflow for generating blog posts
-# This workflow runs on a schedule to generate new blog posts from articles
-
 name: Generate Blog Posts
 
 on:
-  # Run every Tuesday at 9 AM CST (3 PM UTC)
+  # Run every Tuesday at 9 AM CST (15:00 UTC)
   schedule:
     - cron: '0 15 * * 2'
-  
   # Allow manual trigger
   workflow_dispatch:
     inputs:
@@ -29,21 +25,25 @@ on:
         required: false
         default: '30'
         type: string
+      debug_mode:
+        description: 'Skip real generation and use fake JSON for quick testing'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   generate:
     runs-on: ubuntu-latest
-     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -51,9 +51,9 @@ jobs:
           pip uninstall -y google google-cloud google-api-core || true
           pip install --no-cache-dir -r requirements.txt
           # Verify google-generativeai is importable
-          python -c "import google.generativeai as genai; print(f'✓ google.generativeai imported successfully')"
+          python -c "import google.generativeai as genai; print('✓ google.generativeai imported successfully')"
 
-      - name: Debug run + secrets presence
+      - name: Debug secrets presence
         env:
           EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -88,12 +88,35 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          python generate_blog_posts.py \
-            --model ${{ github.event.inputs.model || 'gpt-4' }} \
-            --batch-size ${{ github.event.inputs.batch_size || '30' }} \
-            --days-back ${{ github.event.inputs.days_back || '30' }} \
-            --json > generation_result.json
-      
+          if ${{ github.event.inputs.debug_mode == 'true' }}; then
+            echo "🟡 DEBUG MODE ENABLED: Skipping real generation, creating fake JSON..."
+            cat > generation_result.json << 'EOF'
+          {
+            "posts_generated": 7,
+            "posts_failed": 2,
+            "duration_seconds": 89
+          }
+          EOF
+            echo "Fake generation_result.json created:"
+            cat generation_result.json
+          else
+            echo "🔵 Running real blog post generation..."
+            python generate_blog_posts.py \
+              --model ${{ github.event.inputs.model || 'gpt-4' }} \
+              --batch-size ${{ github.event.inputs.batch_size || '30' }} \
+              --days-back ${{ github.event.inputs.days_back || '30' }} \
+              --json > generation_result.json 2> generation_error.log
+
+            if [ $? -ne 0 ]; then
+              echo "generate_blog_posts.py failed with exit code $?. Error log:"
+              cat generation_error.log
+              exit 1
+            fi
+
+            echo "Real generation_result.json content:"
+            cat generation_result.json || echo "(empty or missing)"
+          fi
+
       - name: Upload generated posts
         uses: actions/upload-artifact@v4
         with:
@@ -102,18 +125,55 @@ jobs:
             blog_posts/
             generation_result.json
           retention-days: 7
-      
+
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-${{ github.run_id }}
+          path: |
+            generation_result.json
+            generation_error.log
+          retention-days: 7
+
       - name: Summary
         run: |
           echo "## Blog Post Generation Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -f generation_result.json ]; then
-            posts_generated=$(cat generation_result.json | python -c "import sys, json; print(json.load(sys.stdin).get('posts_generated', 0))")
-            posts_failed=$(cat generation_result.json | python -c "import sys, json; print(json.load(sys.stdin).get('posts_failed', 0))")
-            duration=$(cat generation_result.json | python -c "import sys, json; print(json.load(sys.stdin).get('duration_seconds', 0))")
-            echo "- **Posts Generated:** $posts_generated" >> $GITHUB_STEP_SUMMARY
-            echo "- **Posts Failed:** $posts_failed" >> $GITHUB_STEP_SUMMARY
-            echo "- **Duration:** ${duration}s" >> $GITHUB_STEP_SUMMARY
+
+          if [ ! -f generation_result.json ]; then
+            echo "- **Error:** generation_result.json is missing." >> $GITHUB_STEP_SUMMARY
+            echo "- **Posts Generated:** 0" >> $GITHUB_STEP_SUMMARY
+          elif [ ! -s generation_result.json ]; then
+            echo "- **Warning:** generation_result.json is empty." >> $GITHUB_STEP_SUMMARY
+            echo "- **Posts Generated:** 0 (script likely failed)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Posts Failed:** Unknown" >> $GITHUB_STEP_SUMMARY
+            echo "- **Duration:** Unknown" >> $GITHUB_STEP_SUMMARY
+          else
+            # Safely extract posts_generated
+            posts_generated=$(python - << 'PY' < generation_result.json
+          import sys, json
+          try:
+              data = json.load(sys.stdin)
+              print(data.get('posts_generated', 0))
+          except json.JSONDecodeError:
+              print('INVALID_JSON')
+          except Exception:
+              print('ERROR')
+          PY
+            )
+
+            if [[ "$posts_generated" == "INVALID_JSON" || "$posts_generated" == "ERROR" ]]; then
+              echo "- **Error:** generation_result.json contains invalid JSON." >> $GITHUB_STEP_SUMMARY
+              echo "- **Posts Generated:** Unknown" >> $GITHUB_STEP_SUMMARY
+            else
+              posts_failed=$(cat generation_result.json | python -c "import sys, json; print(json.load(sys.stdin).get('posts_failed', 0))")
+              duration=$(cat generation_result.json | python -c "import sys, json; print(json.load(sys.stdin).get('duration_seconds', 0))")
+              echo "- **Posts Generated:** $posts_generated" >> $GITHUB_STEP_SUMMARY
+              echo "- **Posts Failed:** $posts_failed" >> $GITHUB_STEP_SUMMARY
+              echo "- **Duration:** ${duration}s" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
+
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Generated posts are available in the artifacts." >> $GITHUB_STEP_SUMMARY
+          echo "Generated posts and debug logs are available in the artifacts." >> $GITHUB_STEP_SUMMARY
