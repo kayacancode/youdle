@@ -130,11 +130,34 @@ Examples:
 
     # Check environment
     if not check_environment(quiet=args.json):
+        if args.json:
+            error_result = {
+                "success": False,
+                "error": "Missing required environment variables",
+                "posts_generated": 0,
+                "posts_failed": 0,
+                "duration_seconds": 0
+            }
+            print(json.dumps(error_result, indent=2), flush=True)
         sys.exit(1)
-    
-    # Import after environment check
-    from blog_post_generator import BlogPostOrchestrator, run_generation
-    
+
+    # Import after environment check (wrapped in try/except for JSON mode)
+    try:
+        from blog_post_generator import BlogPostOrchestrator, run_generation
+    except Exception as e:
+        if args.json:
+            error_result = {
+                "success": False,
+                "error": f"Import error: {e}",
+                "posts_generated": 0,
+                "posts_failed": 0,
+                "duration_seconds": 0
+            }
+            print(json.dumps(error_result, indent=2), flush=True)
+        else:
+            print(f"\nERROR: Failed to import blog_post_generator: {e}", file=sys.stderr)
+        sys.exit(1)
+
     if args.dry_run:
         print("DRY RUN MODE - No posts will be generated")
         print(f"\nConfiguration:")
