@@ -170,3 +170,82 @@ class ImageGenerator:
         except Exception as e:
             print("[ImageGenerator] Image generation failed:", str(e))
             raise
+
+
+class PlaceholderImageGenerator:
+    """
+    Fallback image generator that creates placeholder images.
+    Use this for testing or when Gemini API is unavailable.
+    """
+
+    def __init__(self):
+        """Initialize the placeholder generator."""
+        pass
+
+    def generate_image(
+        self,
+        title: str,
+        theme: str = "",
+        size: int = DEFAULT_IMAGE_SIZE
+    ) -> Dict[str, Any]:
+        """Generate a placeholder image."""
+        # Create a simple SVG placeholder
+        svg = f'''<svg width="{size}" height="{int(size * 9/16)}" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100%" height="100%" fill="#f0f0f0"/>
+            <text x="50%" y="50%" text-anchor="middle" fill="#888" font-size="20">
+                {title[:30]}...
+            </text>
+        </svg>'''
+
+        image_data = base64.b64encode(svg.encode('utf-8')).decode('utf-8')
+
+        return {
+            "success": True,
+            "image_data": image_data,
+            "format": "svg",
+            "placeholder": True,
+            "title": title
+        }
+
+    def generate_image_for_article(
+        self,
+        article: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Generate a placeholder image for an article."""
+        return self.generate_image(
+            title=article.get("title", "Article Image"),
+            theme=article.get("category", "")
+        )
+
+    async def generate_images_concurrent(
+        self,
+        articles: List[Dict[str, Any]],
+        max_workers: int = 4
+    ) -> List[Dict[str, Any]]:
+        """Generate placeholder images for multiple articles."""
+        results = []
+        for article in articles:
+            result = self.generate_image_for_article(article)
+            result["article"] = article
+            results.append(result)
+        return results
+
+
+def get_image_generator(use_placeholder: bool = False) -> ImageGenerator:
+    """
+    Get an image generator instance.
+
+    Args:
+        use_placeholder: Use placeholder generator instead of Gemini
+
+    Returns:
+        ImageGenerator or PlaceholderImageGenerator instance
+    """
+    if use_placeholder:
+        return PlaceholderImageGenerator()
+
+    try:
+        return ImageGenerator()
+    except ValueError:
+        print("Warning: GEMINI_API_KEY not set, using placeholder images")
+        return PlaceholderImageGenerator()
