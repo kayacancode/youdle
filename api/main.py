@@ -22,12 +22,22 @@ app = FastAPI(
 )
 
 # CORS for Next.js frontend
+cors_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://youdle.vercel.app",
+    "https://youdle.io",
+    "https://www.youdle.io",
+]
+
+# Add additional origins from environment variable if set
+extra_origins = os.getenv("CORS_ORIGINS", "")
+if extra_origins:
+    cors_origins.extend([o.strip() for o in extra_origins.split(",") if o.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
