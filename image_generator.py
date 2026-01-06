@@ -79,7 +79,7 @@ class ImageGenerator:
 
         # Initialize with google-generativeai
         genai.configure(api_key=self.api_key)
-        self.model_name = "gemini-2.0-flash-exp"  # Model with image generation capability
+        self.model_name = "gemini-3-flash-preview"  # Gemini 3 with image generation
         self.model = genai.GenerativeModel(self.model_name)
 
     def _create_image_prompt(

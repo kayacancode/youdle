@@ -103,7 +103,7 @@ jobs:
             echo "🔵 Running real blog post generation..."
             python generate_blog_posts.py \
               --model ${{ github.event.inputs.model || 'gpt-4' }} \
-              --batch-size ${{ github.event.inputs.batch_size || '7' }} \
+              --batch-size ${{ github.event.inputs.batch_size || '1' }} \
               --days-back ${{ github.event.inputs.days_back || '7' }} \
               --json > generation_result.json 2> generation_error.log
 
