@@ -171,6 +171,13 @@ class ImageGenerator:
             print("[ImageGenerator] Image generation failed:", str(e))
             raise
 
+    def generate_image_for_article(self, article: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate an image for an article."""
+        return self.generate_image(
+            title=article.get("title", "Article Image"),
+            theme=article.get("category", "")
+        )
+
 
 class PlaceholderImageGenerator:
     """
