@@ -28,6 +28,7 @@ cors_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://youdle.vercel.app",
+    "https://youdle-agent-dashboard.vercel.app",
     "https://youdle.io",
     "https://www.youdle.io",
 ]
