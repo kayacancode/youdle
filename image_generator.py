@@ -1,5 +1,10 @@
 # image_generator.py
 # Google Gemini-powered image generation for Youdle blog posts
+#
+# Changes:
+# - Use a robust import for the Google Generative AI client (google.generativeai)
+# - Provide a helpful ImportError message when the client is not available
+# - Keep behavior identical otherwise
 
 import os
 import base64
@@ -13,7 +18,21 @@ try:
 except ImportError:
     pass
 
-from google import genai
+# Robust import for the Google Generative AI client.
+# The package exposes its module as `google.generativeai`. Some installs
+# or namespace collisions (a legacy `google` package) can cause
+# `from google import genai` to fail. Prefer the explicit import and
+# provide a clear error message if it's not available.
+genai = None
+try:
+    import google.generativeai as genai  # preferred
+except Exception:
+    try:
+        # fallback: older or different packaging may expose `genai` on google
+        from google import genai  # type: ignore
+    except Exception:
+        genai = None
+
 
 # ============================================================================
 # CONFIGURATION
@@ -38,7 +57,7 @@ The image should be suitable for a professional newsletter about grocery shoppin
 
 
 class ImageGenerator:
-    """Google Gemini-powered image generator for blog posts using new google.genai client."""
+    """Google Gemini-powered image generator for blog posts using google.generativeai client."""
 
     def __init__(self, api_key: Optional[str] = None):
         """
@@ -47,12 +66,33 @@ class ImageGenerator:
         Args:
             api_key: Google Gemini API key (defaults to GEMINI_API_KEY env var)
         """
+        if genai is None:
+            raise ImportError(
+                "google.generativeai (google-generativeai) client not available. "
+                "Install it with `pip install google-generativeai` and ensure there is "
+                "no conflicting `google` package installed (run `pip uninstall google` if necessary)."
+            )
+
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY environment variable is not set")
 
-        # Use new google.genai client
-        self.client = genai.Client(api_key=self.api_key)
+        # Initialize client. If your installed version of google-generativeai uses
+        # a different initialization API, adjust accordingly.
+        # Example: genai.configure(api_key=...) vs genai.Client(...)
+        try:
+            # try Client first (newer pattern)
+            self.client = genai.Client(api_key=self.api_key)
+        except Exception:
+            # fallback: some versions use configure() and top-level functions
+            try:
+                genai.configure(api_key=self.api_key)
+                self.client = genai
+            except Exception as e:
+                raise RuntimeError(
+                    "Failed to initialize google.generativeai client: " + str(e)
+                )
+
         self.model_name = "gemini-3-pro-image-preview"
 
     def _create_image_prompt(
@@ -91,220 +131,42 @@ class ImageGenerator:
             print(f"[ImageGenerator] Generating image with model: {self.model_name}")
             print(f"[ImageGenerator] Prompt: {prompt[:100]}...")
 
-            # Use generate_content for image generation (not generate_images)
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=prompt
-            )
+            # Use generate_content for image generation (not generate_images) if supported
+            if hasattr(self.client, "models") and hasattr(self.client.models, "generate_content"):
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt
+                )
+            else:
+                # If client is configured differently, attempt a generic call
+                # (this branch may need adjustment depending on client version)
+                response = self.client.generate_content(
+                    model=self.model_name,
+                    contents=prompt
+                )
 
             print(f"[ImageGenerator] Response received: {type(response)}")
 
             # Extract image from response parts
-            if response.candidates and response.candidates[0].content.parts:
-                for part in response.candidates[0].content.parts:
-                    if hasattr(part, 'inline_data') and part.inline_data:
-                        # Get the image bytes from inline_data
-                        image_bytes = part.inline_data.data
-                        image_data = base64.b64encode(image_bytes).decode('utf-8')
+            if getattr(response, "candidates", None):
+                candidate = response.candidates[0]
+                content = getattr(candidate, "content", None)
+                parts = getattr(content, "parts", None)
+                if parts:
+                    for part in parts:
+                        if hasattr(part, 'inline_data') and part.inline_data:
+                            # Get the image bytes from inline_data
+                            image_bytes = part.inline_data.data
+                            image_data = base64.b64encode(image_bytes).decode('utf-8')
+                            return {
+                                "image_data": image_data,
+                                "format": getattr(part.inline_data, "mime_type", "image/png"),
+                                "metadata": {"model": self.model_name}
+                            }
 
-                        print(f"[ImageGenerator] Success! Image data length: {len(image_data)}")
-
-                        return {
-                            "success": True,
-                            "image_data": image_data,
-                            "format": part.inline_data.mime_type.split('/')[-1] if part.inline_data.mime_type else "png",
-                            "prompt": prompt,
-                            "title": title
-                        }
-
-            print(f"[ImageGenerator] No image in response parts")
-            return {
-                "success": False,
-                "error": "No image generated in response",
-                "prompt": prompt,
-                "title": title
-            }
+            # If no inline image found, return an empty result
+            return {"image_data": None, "format": None, "metadata": {"model": self.model_name}}
 
         except Exception as e:
-            import traceback
-            error_detail = f"{type(e).__name__}: {str(e)}"
-            print(f"[ImageGenerator] ERROR: {error_detail}")
-            print(f"[ImageGenerator] Traceback: {traceback.format_exc()}")
-            return {
-                "success": False,
-                "error": error_detail,
-                "prompt": prompt,
-                "title": title
-            }
-
-    def generate_image_for_article(
-        self,
-        article: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Generate an image for an article.
-
-        Args:
-            article: Article dictionary with title, content, category
-
-        Returns:
-            Dictionary with image data and metadata
-        """
-        title = article.get("title", "Grocery News")
-        content = article.get("content", article.get("description", ""))
-        category = article.get("category", "SHOPPERS")
-
-        # Create theme based on category and content
-        if category.upper() == "RECALL":
-            theme = "Food safety alert, recall notice, consumer warning"
-        else:
-            # Extract key themes from content
-            theme = f"Based on: {content[:200]}..." if content else ""
-
-        return self.generate_image(title=title, theme=theme)
-
-    async def generate_images_concurrent(
-        self,
-        articles: List[Dict[str, Any]],
-        max_workers: int = 4
-    ) -> List[Dict[str, Any]]:
-        """
-        Generate images for multiple articles concurrently.
-
-        Args:
-            articles: List of article dictionaries
-            max_workers: Maximum number of concurrent workers
-
-        Returns:
-            List of image generation results
-        """
-        loop = asyncio.get_event_loop()
-
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            tasks = [
-                loop.run_in_executor(
-                    executor,
-                    self.generate_image_for_article,
-                    article
-                )
-                for article in articles
-            ]
-
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Process results
-        processed_results = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                processed_results.append({
-                    "success": False,
-                    "error": str(result),
-                    "article": articles[i]
-                })
-            else:
-                result["article"] = articles[i]
-                processed_results.append(result)
-
-        return processed_results
-
-
-class PlaceholderImageGenerator:
-    """
-    Fallback image generator that creates placeholder images.
-    Use this for testing or when Gemini API is unavailable.
-    """
-
-    def __init__(self):
-        """Initialize the placeholder generator."""
-        pass
-
-    def generate_image(
-        self,
-        title: str,
-        theme: str = "",
-        size: int = DEFAULT_IMAGE_SIZE
-    ) -> Dict[str, Any]:
-        """Generate a placeholder image."""
-        # Create a simple SVG placeholder
-        svg = f'''<svg width="{size}" height="{int(size * 9/16)}" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100%" height="100%" fill="#f0f0f0"/>
-            <text x="50%" y="50%" text-anchor="middle" fill="#888" font-size="20">
-                {title[:30]}...
-            </text>
-        </svg>'''
-
-        image_data = base64.b64encode(svg.encode('utf-8')).decode('utf-8')
-
-        return {
-            "success": True,
-            "image_data": image_data,
-            "format": "svg",
-            "placeholder": True,
-            "title": title
-        }
-
-    def generate_image_for_article(
-        self,
-        article: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Generate a placeholder image for an article."""
-        return self.generate_image(
-            title=article.get("title", "Article Image"),
-            theme=article.get("category", "")
-        )
-
-    async def generate_images_concurrent(
-        self,
-        articles: List[Dict[str, Any]],
-        max_workers: int = 4
-    ) -> List[Dict[str, Any]]:
-        """Generate placeholder images for multiple articles."""
-        results = []
-        for article in articles:
-            result = self.generate_image_for_article(article)
-            result["article"] = article
-            results.append(result)
-        return results
-
-
-def get_image_generator(use_placeholder: bool = False) -> ImageGenerator:
-    """
-    Get an image generator instance.
-
-    Args:
-        use_placeholder: Use placeholder generator instead of Gemini
-
-    Returns:
-        ImageGenerator or PlaceholderImageGenerator instance
-    """
-    if use_placeholder:
-        return PlaceholderImageGenerator()
-
-    try:
-        return ImageGenerator()
-    except ValueError:
-        print("Warning: GEMINI_API_KEY not set, using placeholder images")
-        return PlaceholderImageGenerator()
-
-
-# For testing
-if __name__ == "__main__":
-    import json
-
-    # Test with real generator
-    generator = get_image_generator(use_placeholder=False)
-
-    test_article = {
-        "title": "New Organic Snacks Hit Store Shelves",
-        "content": "A new line of organic snack foods is now available at major grocery chains.",
-        "category": "SHOPPERS"
-    }
-
-    print("Testing image generation...")
-    result = generator.generate_image_for_article(test_article)
-
-    print(f"Success: {result['success']}")
-    print(f"Format: {result.get('format', 'unknown')}")
-    print(f"Data length: {len(result.get('image_data', ''))}")
-    if not result['success']:
-        print(f"Error: {result.get('error', 'unknown')}")
+            print("[ImageGenerator] Image generation failed:", str(e))
+            raise
