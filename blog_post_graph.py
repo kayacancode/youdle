@@ -805,10 +805,10 @@ def run_blog_post_workflow(
     Returns:
         Final workflow state with results
     """
-    print("=" * 60)
-    print("LANGGRAPH BLOG POST GENERATION WORKFLOW")
-    print("=" * 60)
-    
+    print("=" * 60, file=sys.stderr)
+    print("LANGGRAPH BLOG POST GENERATION WORKFLOW", file=sys.stderr)
+    print("=" * 60, file=sys.stderr)
+
     # Create the graph
     app = create_blog_post_graph()
     
