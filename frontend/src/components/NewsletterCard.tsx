@@ -13,7 +13,8 @@ import {
   X,
   Loader2,
   BarChart3,
-  RotateCcw
+  RotateCcw,
+  RefreshCw
 } from 'lucide-react'
 import { cn, formatDate, getStatusColor } from '@/lib/utils'
 import type { Newsletter } from '@/lib/api'
@@ -25,10 +26,12 @@ interface NewsletterCardProps {
   onSend: () => void
   onUnschedule: () => void
   onRetry: () => void
+  onSyncStats: () => void
   onDelete: () => void
   isScheduling?: boolean
   isSending?: boolean
   isRetrying?: boolean
+  isSyncingStats?: boolean
 }
 
 export function NewsletterCard({
@@ -38,10 +41,12 @@ export function NewsletterCard({
   onSend,
   onUnschedule,
   onRetry,
+  onSyncStats,
   onDelete,
   isScheduling,
   isSending,
   isRetrying,
+  isSyncingStats,
 }: NewsletterCardProps) {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
 
@@ -109,32 +114,47 @@ export function NewsletterCard({
       {/* Stats (for sent newsletters) */}
       {newsletter.status === 'sent' && (
         <div className="p-4 border-t border-stone-200 bg-green-50">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-stone-500" />
-            </div>
-            <div>
-              <p className="text-xs text-stone-500">Emails Sent</p>
-              <p className="text-lg font-semibold text-stone-900">
-                {newsletter.emails_sent}
-              </p>
-            </div>
-            {newsletter.open_rate !== null && (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-stone-500" />
+              </div>
               <div>
-                <p className="text-xs text-stone-500">Open Rate</p>
-                <p className="text-lg font-semibold text-green-600">
-                  {(newsletter.open_rate * 100).toFixed(1)}%
+                <p className="text-xs text-stone-500">Emails Sent</p>
+                <p className="text-lg font-semibold text-stone-900">
+                  {newsletter.emails_sent}
                 </p>
               </div>
-            )}
-            {newsletter.click_rate !== null && (
-              <div>
-                <p className="text-xs text-stone-500">Click Rate</p>
-                <p className="text-lg font-semibold text-blue-600">
-                  {(newsletter.click_rate * 100).toFixed(1)}%
-                </p>
-              </div>
-            )}
+              {newsletter.open_rate !== null && (
+                <div>
+                  <p className="text-xs text-stone-500">Open Rate</p>
+                  <p className="text-lg font-semibold text-green-600">
+                    {(newsletter.open_rate * 100).toFixed(1)}%
+                  </p>
+                </div>
+              )}
+              {newsletter.click_rate !== null && (
+                <div>
+                  <p className="text-xs text-stone-500">Click Rate</p>
+                  <p className="text-lg font-semibold text-blue-600">
+                    {(newsletter.click_rate * 100).toFixed(1)}%
+                  </p>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={onSyncStats}
+              disabled={isSyncingStats}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-all disabled:opacity-50"
+              title="Refresh stats from Mailchimp"
+            >
+              {isSyncingStats ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3 h-3" />
+              )}
+              Sync
+            </button>
           </div>
         </div>
       )}
