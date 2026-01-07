@@ -42,63 +42,37 @@ async def list_jobs(
     """
     List all jobs with optional filtering.
     """
-    # #region agent log
-    import json; open('/Users/kayajones/youdle/.cursor/debug.log','a').write(json.dumps({"location":"jobs.py:list_jobs:entry","message":"list_jobs called","data":{"status":status,"limit":limit},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"E"})+'\n')
-    # #endregion
     try:
-        # #region agent log
-        open('/Users/kayajones/youdle/.cursor/debug.log','a').write(json.dumps({"location":"jobs.py:import","message":"Attempting import supabase_storage","data":{},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"C"})+'\n')
-        # #endregion
         from supabase_storage import get_supabase_client
-        # #region agent log
-        open('/Users/kayajones/youdle/.cursor/debug.log','a').write(json.dumps({"location":"jobs.py:import_success","message":"Import succeeded","data":{},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"C"})+'\n')
-        # #endregion
         supabase = get_supabase_client()
-        # #region agent log
-        open('/Users/kayajones/youdle/.cursor/debug.log','a').write(json.dumps({"location":"jobs.py:supabase_client","message":"get_supabase_client result","data":{"is_none":supabase is None,"type":str(type(supabase))},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"A"})+'\n')
-        # #endregion
-        
+
         # Check if supabase is None
         if supabase is None:
-            # #region agent log
-            open('/Users/kayajones/youdle/.cursor/debug.log','a').write(json.dumps({"location":"jobs.py:supabase_none","message":"Supabase client is None - returning empty","data":{},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"A"})+'\n')
-            # #endregion
             return JobListResponse(jobs=[], total=0)
-        
-        # #region agent log
-        open('/Users/kayajones/youdle/.cursor/debug.log','a').write(json.dumps({"location":"jobs.py:before_query","message":"About to query job_queue","data":{"has_client":hasattr(supabase,'client')},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"B"})+'\n')
-        # #endregion
-        
+
         # Get total count
         count_query = supabase.table("job_queue").select("id", count="exact")
         if status:
             count_query = count_query.eq("status", status)
         count_result = count_query.execute()
         total = count_result.count if count_result.count else 0
-        
+
         # Get jobs
         query = supabase.table("job_queue").select("*").order("started_at", desc=True)
-        
+
         if status:
             query = query.eq("status", status)
-        
+
         query = query.range(offset, offset + limit - 1)
-        
+
         result = query.execute()
-        
-        # #region agent log
-        open('/Users/kayajones/youdle/.cursor/debug.log','a').write(json.dumps({"location":"jobs.py:query_success","message":"Query completed","data":{"total":total,"result_count":len(result.data) if result.data else 0},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"B"})+'\n')
-        # #endregion
-        
+
         return JobListResponse(
             jobs=result.data if result.data else [],
             total=total
         )
-        
+
     except Exception as e:
-        # #region agent log
-        import traceback; open('/Users/kayajones/youdle/.cursor/debug.log','a').write(json.dumps({"location":"jobs.py:exception","message":"Exception in list_jobs","data":{"error":str(e),"type":str(type(e).__name__),"traceback":traceback.format_exc()},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"D"})+'\n')
-        # #endregion
         raise HTTPException(status_code=500, detail=f"Failed to list jobs: {str(e)}")
 
 
