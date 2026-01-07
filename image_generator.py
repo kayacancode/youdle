@@ -79,8 +79,16 @@ class ImageGenerator:
 
         # Initialize with google-generativeai
         genai.configure(api_key=self.api_key)
-        self.model_name = "gemini-3-flash-preview"  # Gemini 3 with image generation
-        self.model = genai.GenerativeModel(self.model_name)
+        # Use gemini-2.5-flash-image for image generation (stable model)
+        self.model_name = "gemini-2.5-flash-preview-04-17"
+        # Configure model with response_modalities to enable image output
+        self.generation_config = genai.types.GenerationConfig(
+            response_modalities=["TEXT", "IMAGE"]
+        )
+        self.model = genai.GenerativeModel(
+            self.model_name,
+            generation_config=self.generation_config
+        )
 
     def _create_image_prompt(
         self,
@@ -115,12 +123,24 @@ class ImageGenerator:
         prompt = self._create_image_prompt(title, theme, size)
 
         try:
-            print(f"[ImageGenerator] Generating image with model: {self.model_name}", flush=True)
-            print(f"[ImageGenerator] Prompt: {prompt[:100]}...", flush=True)
+            print(f"[ImageGenerator] Generating image with model: {self.model_name} (response_modalities: TEXT, IMAGE)", flush=True)
+            print(f"[ImageGenerator] Prompt: {prompt[:80]}...", flush=True)
 
             response = self.model.generate_content(prompt)
 
-            print(f"[ImageGenerator] Response received: {type(response)}", flush=True)
+            # Debug: Print response structure
+            if getattr(response, "candidates", None):
+                candidate = response.candidates[0]
+                content = getattr(candidate, "content", None)
+                parts = getattr(content, "parts", None) if content else None
+                part_types = []
+                if parts:
+                    for part in parts:
+                        if hasattr(part, 'inline_data') and part.inline_data:
+                            part_types.append("IMAGE")
+                        elif hasattr(part, 'text') and part.text:
+                            part_types.append("TEXT")
+                print(f"[ImageGenerator] Response parts: {part_types if part_types else 'none'}", flush=True)
 
             # Extract image from response parts
             if getattr(response, "candidates", None):
