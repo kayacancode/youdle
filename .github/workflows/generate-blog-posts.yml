@@ -18,12 +18,12 @@ on:
       batch_size:
         description: 'Number of articles to search'
         required: false
-        default: '30'
+        default: '20'
         type: string
       days_back:
         description: 'Days to search back'
         required: false
-        default: '30'
+        default: '5'
         type: string
       debug_mode:
         description: 'Skip real generation and use fake JSON for quick testing'
@@ -105,8 +105,8 @@ jobs:
             echo "🔵 Running real blog post generation..."
             python generate_blog_posts.py \
               --model ${{ github.event.inputs.model || 'gpt-4' }} \
-              --batch-size ${{ github.event.inputs.batch_size || '1' }} \
-              --days-back ${{ github.event.inputs.days_back || '7' }} \
+              --batch-size ${{ github.event.inputs.batch_size || '10' }} \
+              --days-back ${{ github.event.inputs.days_back || '5' }} \
               --json > generation_result.json 2> generation_error.log
 
             if [ $? -ne 0 ]; then
