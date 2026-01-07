@@ -47,12 +47,13 @@ app.add_middleware(
 )
 
 # Import routes
-from routes import search, generate, jobs
+from routes import search, generate, jobs, newsletters
 
 # Include routers
 app.include_router(search.router, prefix="/api/search", tags=["Search"])
 app.include_router(generate.router, prefix="/api/generate", tags=["Generate"])
 app.include_router(jobs.router, prefix="/api/jobs", tags=["Jobs"])
+app.include_router(newsletters.router, prefix="/api/newsletters", tags=["Newsletters"])
 
 
 @app.get("/")
@@ -102,6 +103,15 @@ async def get_stats():
         shoppers_posts = len([p for p in posts_data if p.get("category") == "SHOPPERS"])
         recall_posts = len([p for p in posts_data if p.get("category") == "RECALL"])
         
+        # Get newsletter counts
+        newsletters_result = supabase.table("newsletters").select("id, status").execute()
+        newsletters_data = newsletters_result.data if newsletters_result.data else []
+
+        total_newsletters = len(newsletters_data)
+        draft_newsletters = len([n for n in newsletters_data if n.get("status") == "draft"])
+        scheduled_newsletters = len([n for n in newsletters_data if n.get("status") == "scheduled"])
+        sent_newsletters = len([n for n in newsletters_data if n.get("status") == "sent"])
+
         return {
             "jobs": {
                 "total": total_jobs,
@@ -119,6 +129,12 @@ async def get_stats():
                     "recall": recall_posts
                 }
             },
+            "newsletters": {
+                "total": total_newsletters,
+                "draft": draft_newsletters,
+                "scheduled": scheduled_newsletters,
+                "sent": sent_newsletters
+            },
             "timestamp": datetime.utcnow().isoformat()
         }
     except Exception as e:
@@ -129,6 +145,7 @@ async def get_stats():
                 "total": 0, "draft": 0, "reviewed": 0, "published": 0,
                 "by_category": {"shoppers": 0, "recall": 0}
             },
+            "newsletters": {"total": 0, "draft": 0, "scheduled": 0, "sent": 0},
             "error": str(e),
             "timestamp": datetime.utcnow().isoformat()
         }

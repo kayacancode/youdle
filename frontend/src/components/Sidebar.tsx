@@ -9,7 +9,8 @@ import {
   FileText,
   CheckSquare,
   Settings,
-  Activity
+  Activity,
+  Mail
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +18,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Articles', href: '/articles', icon: Search },
   { name: 'Blog Posts', href: '/posts', icon: FileText },
+  { name: 'Newsletters', href: '/newsletters', icon: Mail },
   { name: 'Review', href: '/review', icon: CheckSquare },
   { name: 'Jobs', href: '/jobs', icon: Activity },
   { name: 'Settings', href: '/settings', icon: Settings },
