@@ -761,6 +761,47 @@ async def unschedule_newsletter(newsletter_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to unschedule newsletter: {str(e)}")
 
 
+@router.post("/{newsletter_id}/retry", response_model=Newsletter)
+async def retry_newsletter(newsletter_id: str):
+    """
+    Retry a failed newsletter by resetting it to draft status.
+    Clears the error and Mailchimp campaign ID so it can be sent again.
+    """
+    try:
+        from supabase_storage import get_supabase_client
+
+        supabase = get_supabase_client()
+
+        if supabase is None:
+            raise HTTPException(status_code=503, detail="Database not configured")
+
+        # Get newsletter
+        newsletter = supabase.table("newsletters").select("*").eq("id", newsletter_id).single().execute()
+        if not newsletter.data:
+            raise HTTPException(status_code=404, detail="Newsletter not found")
+
+        nl = newsletter.data
+
+        if nl["status"] != "failed":
+            raise HTTPException(status_code=400, detail="Only failed newsletters can be retried")
+
+        # Reset to draft status, clear error and campaign ID
+        supabase.table("newsletters").update({
+            "status": "draft",
+            "error": None,
+            "mailchimp_campaign_id": None,
+            "mailchimp_web_id": None,
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", newsletter_id).execute()
+
+        return get_newsletter_with_posts(supabase, newsletter_id)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retry newsletter: {str(e)}")
+
+
 @router.post("/auto-create", response_model=Newsletter)
 async def auto_create_newsletter():
     """

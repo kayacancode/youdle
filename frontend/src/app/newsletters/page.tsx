@@ -84,6 +84,11 @@ export default function NewslettersPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['newsletters'] }),
   })
 
+  const retryMutation = useMutation({
+    mutationFn: (id: string) => api.retryNewsletter(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['newsletters'] }),
+  })
+
   const autoCreateMutation = useMutation({
     mutationFn: () => api.autoCreateNewsletter(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['newsletters'] }),
@@ -261,9 +266,11 @@ export default function NewslettersPage() {
               onSchedule={() => scheduleMutation.mutate(newsletter.id)}
               onSend={() => sendMutation.mutate(newsletter.id)}
               onUnschedule={() => unscheduleMutation.mutate(newsletter.id)}
+              onRetry={() => retryMutation.mutate(newsletter.id)}
               onDelete={() => deleteMutation.mutate(newsletter.id)}
               isScheduling={scheduleMutation.isPending}
               isSending={sendMutation.isPending}
+              isRetrying={retryMutation.isPending}
             />
           ))}
         </div>

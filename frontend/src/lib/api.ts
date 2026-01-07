@@ -353,6 +353,10 @@ class ApiClient {
     return this.request(`/api/newsletters/${id}/unschedule`, { method: 'POST' })
   }
 
+  async retryNewsletter(id: string): Promise<Newsletter> {
+    return this.request(`/api/newsletters/${id}/retry`, { method: 'POST' })
+  }
+
   async getPublishedPostsForNewsletter(): Promise<BlogPostSummary[]> {
     return this.request('/api/newsletters/published-posts')
   }
