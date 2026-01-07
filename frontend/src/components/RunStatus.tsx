@@ -21,6 +21,7 @@ interface Job {
 interface RunStatusProps {
   jobs: Job[]
   className?: string
+  onCancel?: (jobId: string) => void
 }
 
 const statusIcons = {
@@ -31,7 +32,7 @@ const statusIcons = {
   cancelled: Ban,
 }
 
-export function RunStatus({ jobs, className }: RunStatusProps) {
+export function RunStatus({ jobs, className, onCancel }: RunStatusProps) {
   if (jobs.length === 0) {
     return (
       <div className={cn('rounded-2xl bg-white  border border-stone-200  p-6', className)}>
@@ -91,17 +92,31 @@ export function RunStatus({ jobs, className }: RunStatusProps) {
                 </div>
               </div>
 
-              <div className="text-right">
-                <span className={cn(
-                  'inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium',
-                  getStatusColor(job.status)
-                )}>
-                  {job.status}
-                </span>
-                {job.result?.posts_generated !== undefined && (
-                  <p className="text-xs text-stone-500  mt-1">
-                    {job.result.posts_generated} posts
-                  </p>
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <span className={cn(
+                    'inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium',
+                    getStatusColor(job.status)
+                  )}>
+                    {job.status}
+                  </span>
+                  {job.result?.posts_generated !== undefined && (
+                    <p className="text-xs text-stone-500  mt-1">
+                      {job.result.posts_generated} posts
+                    </p>
+                  )}
+                </div>
+                {(job.status === 'pending' || job.status === 'running') && onCancel && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onCancel(job.id)
+                    }}
+                    className="p-2 rounded-lg text-red-500 hover:bg-red-100 transition-colors"
+                    title="Cancel job"
+                  >
+                    <Ban className="w-4 h-4" />
+                  </button>
                 )}
               </div>
             </div>
