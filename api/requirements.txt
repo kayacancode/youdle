@@ -16,11 +16,9 @@ google-auth>=2.23.0
 google-auth-oauthlib>=1.1.0
 google-genai>=1.0.0
 
-# LangChain core
-langchain>=0.1.0
-langchain-openai>=0.0.5
+# LangChain core (minimal)
 langchain-core>=0.1.0
-langchain-community>=0.0.20
+langchain-openai>=0.0.5
 
 # LangGraph for stateful workflow orchestration
 langgraph>=0.2.0
@@ -34,17 +32,10 @@ exa_py>=1.0.0
 # Mailchimp API
 mailchimp3>=3.0.0
 
-# Async HTTP for concurrent operations
-aiohttp>=3.9.0
-
-# Vector similarity (for learning system)
-numpy>=1.24.0
-
 # Utilities
 python-dotenv>=1.0.0
 httpx>=0.25.0
 tenacity>=8.2.0
-pytz>=2024.1
 
 
 
