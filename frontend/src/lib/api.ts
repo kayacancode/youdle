@@ -265,6 +265,12 @@ class ApiClient {
     })
   }
 
+  async unpublishFromBlogger(postId: string): Promise<{ message: string; post: any }> {
+    return this.request(`/api/generate/posts/${postId}/unpublish`, {
+      method: 'POST',
+    })
+  }
+
   // Jobs
   async listJobs(params: {
     status?: string

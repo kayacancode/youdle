@@ -26,14 +26,16 @@ interface BlogPostPreviewProps {
   onDelete?: (postId: string) => void
   onEdit?: (postId: string, updates: BlogPostUpdate) => Promise<void>
   onPublish?: (postId: string) => Promise<void>
+  onUnpublish?: (postId: string) => Promise<void>
   className?: string
 }
 
-export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, onPublish, className }: BlogPostPreviewProps) {
+export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, onPublish, onUnpublish, className }: BlogPostPreviewProps) {
   const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview')
   const [copied, setCopied] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
+  const [isUnpublishing, setIsUnpublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
 
   const handlePublish = async () => {
@@ -46,6 +48,19 @@ export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, onPubl
       setPublishError(error instanceof Error ? error.message : 'Failed to publish')
     } finally {
       setIsPublishing(false)
+    }
+  }
+
+  const handleUnpublish = async () => {
+    if (!onUnpublish) return
+    setIsUnpublishing(true)
+    setPublishError(null)
+    try {
+      await onUnpublish(post.id)
+    } catch (error) {
+      setPublishError(error instanceof Error ? error.message : 'Failed to unpublish')
+    } finally {
+      setIsUnpublishing(false)
     }
   }
 
@@ -190,7 +205,7 @@ export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, onPubl
           )}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              {onStatusChange && (
+              {onStatusChange && post.status !== 'published' && (
                 <>
                   <button
                     onClick={() => onStatusChange(post.id, 'draft')}
@@ -217,6 +232,27 @@ export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, onPubl
                     Mark Reviewed
                   </button>
                 </>
+              )}
+              {onUnpublish && post.status === 'published' && isPublishedToBlogger && (
+                <button
+                  onClick={handleUnpublish}
+                  disabled={isUnpublishing}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                    isUnpublishing
+                      ? "bg-amber-100 text-amber-700 cursor-wait"
+                      : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                  )}
+                >
+                  {isUnpublishing ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Unpublishing...
+                    </>
+                  ) : (
+                    'Unpublish'
+                  )}
+                </button>
               )}
               {onPublish && (
                 <button
