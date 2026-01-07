@@ -20,7 +20,7 @@ export function QuickActions({ onSearchPreview, onStartGeneration, className }: 
     try {
       const response = await api.startGeneration({
         batch_size: 6,
-        search_days_back: 30,
+        search_days_back: 3,
         model: 'gpt-4',
         use_placeholder_images: false,
       })

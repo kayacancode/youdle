@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { 
   FileText, 
   Activity, 
@@ -17,6 +17,17 @@ import { ScheduleBanner } from '@/components/ScheduleBanner'
 import { formatNumber } from '@/lib/utils'
 
 export default function DashboardPage() {
+  const queryClient = useQueryClient()
+
+  // Cancel job mutation
+  const cancelMutation = useMutation({
+    mutationFn: (jobId: string) => api.cancelJob(jobId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recentJobs'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+    },
+  })
+
   // Fetch system stats
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<SystemStats>({
     queryKey: ['stats'],
@@ -134,8 +145,9 @@ export default function DashboardPage() {
       />
 
       {/* Recent Jobs */}
-      <RunStatus 
+      <RunStatus
         jobs={jobsData?.jobs || []}
+        onCancel={(jobId) => cancelMutation.mutate(jobId)}
       />
 
       {/* API Status */}
