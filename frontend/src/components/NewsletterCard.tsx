@@ -12,7 +12,8 @@ import {
   XCircle,
   X,
   Loader2,
-  BarChart3
+  BarChart3,
+  RotateCcw
 } from 'lucide-react'
 import { cn, formatDate, getStatusColor } from '@/lib/utils'
 import type { Newsletter } from '@/lib/api'
@@ -23,9 +24,11 @@ interface NewsletterCardProps {
   onSchedule: () => void
   onSend: () => void
   onUnschedule: () => void
+  onRetry: () => void
   onDelete: () => void
   isScheduling?: boolean
   isSending?: boolean
+  isRetrying?: boolean
 }
 
 export function NewsletterCard({
@@ -34,9 +37,11 @@ export function NewsletterCard({
   onSchedule,
   onSend,
   onUnschedule,
+  onRetry,
   onDelete,
   isScheduling,
   isSending,
+  isRetrying,
 }: NewsletterCardProps) {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
 
@@ -201,6 +206,21 @@ export function NewsletterCard({
             >
               <X className="w-3 h-3" />
               Unschedule
+            </button>
+          )}
+
+          {newsletter.status === 'failed' && (
+            <button
+              onClick={onRetry}
+              disabled={isRetrying}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-all disabled:opacity-50"
+            >
+              {isRetrying ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <RotateCcw className="w-3 h-3" />
+              )}
+              Retry
             </button>
           )}
         </div>
