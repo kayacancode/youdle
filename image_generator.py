@@ -79,8 +79,8 @@ class ImageGenerator:
 
         # Initialize with google-generativeai
         genai.configure(api_key=self.api_key)
-        # Use gemini-2.5-flash-image for image generation (stable model)
-        self.model_name = "gemini-2.5-flash-preview-04-17"
+        # Use gemini-3-flash-preview for image generation
+        self.model_name = "gemini-3-flash-preview"
         # Configure model with response_modalities to enable image output
         self.generation_config = genai.types.GenerationConfig(
             response_modalities=["TEXT", "IMAGE"]
