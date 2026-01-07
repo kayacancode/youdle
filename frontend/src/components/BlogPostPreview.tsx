@@ -233,7 +233,7 @@ export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, onPubl
                   </button>
                 </>
               )}
-              {onUnpublish && post.status === 'published' && isPublishedToBlogger && (
+              {onUnpublish && post.status === 'published' && (
                 <button
                   onClick={handleUnpublish}
                   disabled={isUnpublishing}
