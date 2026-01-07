@@ -134,17 +134,28 @@ class ImageGenerator:
                             image_bytes = part.inline_data.data
                             image_data = base64.b64encode(image_bytes).decode('utf-8')
                             return {
+                                "success": True,
                                 "image_data": image_data,
                                 "format": getattr(part.inline_data, "mime_type", "image/png"),
                                 "metadata": {"model": self.model_name}
                             }
 
-            # If no inline image found, return an empty result
-            return {"image_data": None, "format": None, "metadata": {"model": self.model_name}}
+            # If no inline image found, return failure
+            return {
+                "success": False,
+                "error": "No image data in response",
+                "image_data": None,
+                "format": None,
+                "metadata": {"model": self.model_name}
+            }
 
         except Exception as e:
             print("[ImageGenerator] Image generation failed:", str(e))
-            raise
+            return {
+                "success": False,
+                "error": str(e),
+                "image_data": None
+            }
 
     def generate_image_for_article(self, article: Dict[str, Any]) -> Dict[str, Any]:
         """Generate an image for an article."""
