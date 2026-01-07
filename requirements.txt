@@ -9,9 +9,8 @@ aiofiles>=23.0.0
 google-api-python-client>=2.100.0
 google-auth>=2.23.0
 google-auth-oauthlib>=1.1.0
-# DEPRECATED: This package is EOL. Migrate to google-genai in future.
-# Pinned to known working version for stability
-google-generativeai==0.8.3
+# google-genai is the new SDK for Gemini image generation
+google-genai>=1.0.0
 
 # Supabase for storage and database
 supabase>=2.0.0
@@ -47,3 +46,4 @@ sentence-transformers>=2.2.0
 python-dotenv>=1.0.0
 httpx>=0.25.0
 tenacity>=8.2.0
+pytz>=2024.1
