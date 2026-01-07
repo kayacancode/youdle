@@ -201,9 +201,24 @@ EXCEPTION WHEN OTHERS THEN
 END $$;
 
 -- ============================================================================
+-- Settings Table (for app configuration)
+-- Stores key-value settings like active Mailchimp audience
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS for settings
+ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all for settings" ON settings;
+CREATE POLICY "Allow all for settings" ON settings FOR ALL USING (true);
+
+-- ============================================================================
 -- Success message
 -- ============================================================================
 DO $$
 BEGIN
-    RAISE NOTICE 'Schema created successfully! Tables: job_queue, blog_posts, feedback, newsletters, newsletter_posts';
+    RAISE NOTICE 'Schema created successfully! Tables: job_queue, blog_posts, feedback, newsletters, newsletter_posts, settings';
 END $$;

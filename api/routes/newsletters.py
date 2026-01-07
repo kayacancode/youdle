@@ -305,6 +305,68 @@ async def get_mailchimp_status():
         }
 
 
+@router.get("/audiences")
+async def get_mailchimp_audiences():
+    """
+    Get all available Mailchimp audiences/lists.
+    Returns the list of audiences and the currently active one.
+    """
+    try:
+        from supabase_storage import get_supabase_client
+        from mailchimp_campaign import MailchimpCampaign
+
+        mailchimp = MailchimpCampaign()
+        audiences = mailchimp.get_audiences()
+
+        # Get current audience from settings or fall back to env var
+        current_audience_id = mailchimp.list_id
+        supabase = get_supabase_client()
+        if supabase:
+            try:
+                setting = supabase.table("settings").select("value").eq("key", "mailchimp_audience_id").single().execute()
+                if setting.data:
+                    current_audience_id = setting.data["value"]
+            except:
+                pass  # Use default from env
+
+        return {
+            "audiences": audiences,
+            "current": current_audience_id
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get audiences: {str(e)}")
+
+
+@router.post("/audiences/set")
+async def set_active_audience(audience_id: str = Query(..., description="The Mailchimp audience/list ID to set as active")):
+    """
+    Set the active Mailchimp audience for sending newsletters.
+    """
+    try:
+        from supabase_storage import get_supabase_client
+
+        supabase = get_supabase_client()
+        if supabase is None:
+            raise HTTPException(status_code=503, detail="Database not configured")
+
+        # Upsert the setting
+        supabase.table("settings").upsert({
+            "key": "mailchimp_audience_id",
+            "value": audience_id,
+            "updated_at": datetime.utcnow().isoformat()
+        }, on_conflict="key").execute()
+
+        return {
+            "success": True,
+            "audience_id": audience_id,
+            "message": f"Active audience set to {audience_id}"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to set audience: {str(e)}")
+
+
 @router.get("/{newsletter_id}", response_model=Newsletter)
 async def get_newsletter(newsletter_id: str):
     """

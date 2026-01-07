@@ -249,7 +249,31 @@ class MailchimpCampaign:
                 )
             except Exception as e:
                 print(f"Warning: Could not initialize Mailchimp client: {e}")
-    
+
+    def get_audiences(self) -> list:
+        """
+        Fetch all audiences/lists from Mailchimp.
+
+        Returns:
+            List of audience dictionaries with id, name, and member_count
+        """
+        if not self.client:
+            return []
+
+        try:
+            result = self.client.lists.all(get_all=True)
+            audiences = []
+            for lst in result.get("lists", []):
+                audiences.append({
+                    "id": lst["id"],
+                    "name": lst["name"],
+                    "member_count": lst.get("stats", {}).get("member_count", 0)
+                })
+            return audiences
+        except Exception as e:
+            print(f"Error fetching Mailchimp audiences: {e}")
+            return []
+
     def _format_article_link(
         self,
         title: str,

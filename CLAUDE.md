@@ -49,7 +49,7 @@ search_articles → select_articles → load_learning → generate_posts → ref
 
 ### Data Flow
 - **State Management**: `BlogPostState` TypedDict flows through LangGraph nodes
-- **Database**: Supabase (PostgreSQL) with tables: `job_queue`, `blog_posts`, `feedback`, `blog_examples`, `learning_insights`
+- **Database**: Supabase (PostgreSQL) with tables: `job_queue`, `blog_posts`, `feedback`, `newsletters`, `newsletter_posts`, `settings`
 - **Realtime**: Supabase subscriptions for live job/post updates in frontend
 
 ### External APIs
@@ -85,6 +85,40 @@ Two main categories: `SHOPPERS` (grocery articles) and `RECALL` (recall alerts)
 - `GET/POST /api/generate/posts` - Blog posts CRUD
 - `POST /api/generate/posts/{id}/publish` - Publish to Blogger
 - `GET /api/jobs` - Job queue management
+
+### Newsletter Endpoints
+- `GET /api/newsletters` - List all newsletters
+- `POST /api/newsletters` - Create newsletter from post IDs
+- `GET /api/newsletters/{id}` - Get newsletter by ID
+- `GET /api/newsletters/{id}/preview` - Preview newsletter HTML
+- `POST /api/newsletters/{id}/schedule` - Schedule for Thursday 9 AM CST
+- `POST /api/newsletters/{id}/send` - Send immediately via Mailchimp
+- `POST /api/newsletters/{id}/unschedule` - Cancel scheduled send
+- `GET /api/newsletters/status` - Check Mailchimp configuration
+- `GET /api/newsletters/audiences` - List Mailchimp audiences
+- `POST /api/newsletters/audiences/set` - Set active audience
+
+## Newsletter System
+
+### Workflow
+1. **Create**: Select published blog posts → auto-generates HTML email
+2. **Preview**: View rendered newsletter in modal
+3. **Schedule/Send**: Schedule for Thursday 9 AM CST or send immediately
+
+### Mailchimp Integration
+- **Configuration**: Set `MAILCHIMP_API_KEY`, `MAILCHIMP_LIST_ID`, `MAILCHIMP_SERVER_PREFIX` in `.env`
+- **Sender Email**: Default `info@getyoudle.com` (configured in `mailchimp_campaign.py`)
+- **Audience Selection**: Stored in `settings` table, changeable via dashboard
+
+### Newsletter Status Flow
+- `draft` → `scheduled` → `sent`
+- `draft` → `sent` (immediate send)
+- `draft/scheduled` → `failed` (on error)
+
+### Database Tables
+- `newsletters`: Stores newsletter content, Mailchimp campaign IDs, stats
+- `newsletter_posts`: Junction table linking newsletters to blog posts
+- `settings`: Key-value store for app config (e.g., active Mailchimp audience)
 
 ## Prompt Customization
 - Blog templates: `SHOPPERS_BLOG_PROMPT` and `RECALL_BLOG_PROMPT` in `langchain_blog_agent.py`

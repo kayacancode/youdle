@@ -132,6 +132,17 @@ export interface PublishResponse {
   post: any
 }
 
+export interface MailchimpAudience {
+  id: string
+  name: string
+  member_count: number
+}
+
+export interface AudiencesResponse {
+  audiences: MailchimpAudience[]
+  current: string | null
+}
+
 // API Client class
 class ApiClient {
   private baseUrl: string
@@ -352,6 +363,15 @@ class ApiClient {
 
   async syncNewsletterStats(id: string): Promise<Newsletter> {
     return this.request(`/api/newsletters/${id}/sync-stats`, { method: 'POST' })
+  }
+
+  // Mailchimp Audiences
+  async getMailchimpAudiences(): Promise<AudiencesResponse> {
+    return this.request('/api/newsletters/audiences')
+  }
+
+  async setMailchimpAudience(audienceId: string): Promise<{ success: boolean; audience_id: string; message: string }> {
+    return this.request(`/api/newsletters/audiences/set?audience_id=${audienceId}`, { method: 'POST' })
   }
 }
 
