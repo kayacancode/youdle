@@ -439,3 +439,59 @@ async def publish_post_to_blogger(post_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to publish to Blogger: {str(e)}")
 
 
+@router.post("/posts/{post_id}/unpublish")
+async def unpublish_post_from_blogger(post_id: str):
+    """
+    Unpublish a blog post from Blogger.
+    Deletes the post from Blogger and resets status to reviewed.
+    """
+    try:
+        from supabase_storage import get_supabase_client
+        from blogger_client import get_blogger_client
+
+        supabase = get_supabase_client()
+        blogger = get_blogger_client()
+
+        # Get the post from database
+        result = supabase.table("blog_posts").select("*").eq("id", post_id).single().execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Post not found")
+
+        post = result.data
+
+        # Check if published to Blogger
+        if not post.get("blogger_post_id"):
+            raise HTTPException(
+                status_code=400,
+                detail="Post is not published to Blogger"
+            )
+
+        # Delete from Blogger if configured
+        if blogger.is_configured():
+            try:
+                blogger.delete_post(post["blogger_post_id"])
+            except Exception as e:
+                # Log but don't fail - post might already be deleted from Blogger
+                print(f"Warning: Could not delete from Blogger: {e}")
+
+        # Update the database - clear blogger fields and reset status
+        update_result = supabase.table("blog_posts").update({
+            "status": "reviewed",
+            "blogger_post_id": None,
+            "blogger_url": None,
+            "blogger_published_at": None,
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", post_id).execute()
+
+        return {
+            "message": "Post unpublished from Blogger successfully",
+            "post": update_result.data[0] if update_result.data else None
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to unpublish from Blogger: {str(e)}")
+
+

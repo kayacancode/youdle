@@ -51,6 +51,13 @@ export default function PostsPage() {
     },
   })
 
+  const unpublishFromBloggerMutation = useMutation({
+    mutationFn: (postId: string) => api.unpublishFromBlogger(postId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+    },
+  })
+
   const deleteAllPostsMutation = useMutation({
     mutationFn: async () => {
       if (!posts || posts.length === 0) return
@@ -77,6 +84,10 @@ export default function PostsPage() {
 
   const handlePublish = async (postId: string) => {
     await publishToBloggerMutation.mutateAsync(postId)
+  }
+
+  const handleUnpublish = async (postId: string) => {
+    await unpublishFromBloggerMutation.mutateAsync(postId)
   }
 
   const handleDeleteAll = () => {
@@ -245,6 +256,7 @@ export default function PostsPage() {
               onDelete={handleDelete}
               onEdit={handleEdit}
               onPublish={handlePublish}
+              onUnpublish={handleUnpublish}
             />
           ))}
         </div>
