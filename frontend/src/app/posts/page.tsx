@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { FileText, Filter, RefreshCw, ShoppingCart, AlertOctagon, Trash2, Globe } from 'lucide-react'
 import { api, type BlogPostUpdate } from '@/lib/api'
@@ -68,16 +68,22 @@ export default function PostsPage() {
     },
   })
 
+  const [hasAutoSynced, setHasAutoSynced] = useState(false)
+
   const syncWithBloggerMutation = useMutation({
     mutationFn: () => api.syncWithBlogger(),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['posts'] })
-      alert(`Sync complete! ${data.synced_count} posts updated.`)
-    },
-    onError: (error) => {
-      alert(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     },
   })
+
+  // Auto-sync with Blogger on page load
+  useEffect(() => {
+    if (!hasAutoSynced) {
+      setHasAutoSynced(true)
+      syncWithBloggerMutation.mutate()
+    }
+  }, [hasAutoSynced])
 
   const handleStatusChange = (postId: string, status: string) => {
     updateStatusMutation.mutate({ postId, status })
