@@ -71,37 +71,21 @@ def run_generation_task(job_id: str, config: dict):
             search_days_back=config.get("search_days_back", 30),
             use_langgraph=not config.get("use_legacy_orchestrator", False)
         )
-        
-        # #region agent log - Hypothesis A: Check result structure
-        import json as _json; open('/Users/kayajones/youdle/.cursor/debug.log','a').write(_json.dumps({"location":"generate.py:run_generation_task:after_run","message":"Result keys from run_generation","data":{"keys":list(result.keys()),"has_final_posts":result.get("final_posts") is not None,"has_final_state":"final_state" in result,"has_results":"results" in result},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"A"})+'\n')
-        # #endregion
-        
+
         # Get posts from result - handle both LangGraph and legacy return structures
         final_posts = []
-        
+
         # Try LangGraph structure first (final_state.final_posts)
         if result.get("final_state"):
             final_posts = result["final_state"].get("final_posts", [])
         # Fallback to legacy structure (results array)
         elif result.get("results"):
             final_posts = result["results"]
-        
-        # #region agent log - Hypothesis A: Check extracted posts
-        open('/Users/kayajones/youdle/.cursor/debug.log','a').write(_json.dumps({"location":"generate.py:run_generation_task:posts_extracted","message":"Extracted final_posts","data":{"count":len(final_posts),"sample_keys":list(final_posts[0].keys()) if final_posts else []},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"A"})+'\n')
-        # #endregion
 
         # Limit final_posts to configured batch_size to prevent over-generation
         configured_batch_size = config.get("batch_size", 10)
         if len(final_posts) > configured_batch_size:
-            original_count = len(final_posts)
             final_posts = final_posts[:configured_batch_size]
-            open('/Users/kayajones/youdle/.cursor/debug.log','a').write(_json.dumps({
-                "location":"generate.py:run_generation_task:size_limit_applied",
-                "message":"Trimmed final_posts to batch_size",
-                "data":{"original_count":original_count,"limited_to":configured_batch_size},
-                "timestamp":__import__('time').time()*1000,
-                "sessionId":"debug-session"
-            })+'\n')
 
         # Store generated posts in database
         inserted_count = 0
@@ -136,15 +120,8 @@ def run_generation_task(job_id: str, config: dict):
                 }).execute()
                 inserted_count += 1
             except Exception as insert_err:
-                # #region agent log - Hypothesis C: Insert errors
-                open('/Users/kayajones/youdle/.cursor/debug.log','a').write(_json.dumps({"location":"generate.py:run_generation_task:insert_error","message":"Insert failed","data":{"error":str(insert_err),"post_title":post.get("title","")},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"C"})+'\n')
-                # #endregion
                 pass
-        
-        # #region agent log - Final count
-        open('/Users/kayajones/youdle/.cursor/debug.log','a').write(_json.dumps({"location":"generate.py:run_generation_task:complete","message":"Insert complete","data":{"inserted_count":inserted_count,"total_posts":len(final_posts)},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"A"})+'\n')
-        # #endregion
-        
+
         # Update job status to completed
         supabase.table("job_queue").update({
             "status": "completed",
@@ -180,17 +157,10 @@ async def run_generation_endpoint(
     Start a new blog post generation run.
     Returns immediately with a job ID that can be used to track progress.
     """
-    # #region agent log
-    import json; open('/Users/kayajones/youdle/.cursor/debug.log','a').write(json.dumps({"location":"generate.py:run_generation:entry","message":"run_generation called","data":{"config":str(config)},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"E"})+'\n')
-    # #endregion
     try:
         from supabase_storage import get_supabase_client
         supabase = get_supabase_client()
-        
-        # #region agent log
-        open('/Users/kayajones/youdle/.cursor/debug.log','a').write(json.dumps({"location":"generate.py:supabase_check","message":"Supabase client status","data":{"is_none":supabase is None},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"A"})+'\n')
-        # #endregion
-        
+
         if supabase is None:
             raise HTTPException(status_code=503, detail="Supabase not configured")
         
@@ -220,9 +190,6 @@ async def run_generation_endpoint(
     except HTTPException:
         raise
     except Exception as e:
-        # #region agent log
-        import traceback; open('/Users/kayajones/youdle/.cursor/debug.log','a').write(json.dumps({"location":"generate.py:run_exception","message":"Exception in run_generation","data":{"error":str(e),"type":str(type(e).__name__),"traceback":traceback.format_exc()},"timestamp":__import__('time').time()*1000,"sessionId":"debug-session","hypothesisId":"D"})+'\n')
-        # #endregion
         raise HTTPException(status_code=500, detail=f"Failed to start generation: {str(e)}")
 
 
@@ -449,6 +416,15 @@ async def publish_post_to_blogger(post_id: str):
             "blogger_published_at": blogger_result.get("published_at") or datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat()
         }).eq("id", post_id).execute()
+
+        # Trigger newsletter auto-create check
+        try:
+            from routes.newsletters import check_auto_create_newsletter
+            import asyncio
+            asyncio.create_task(check_auto_create_newsletter())
+        except Exception as e:
+            # Don't fail the publish if newsletter creation fails
+            print(f"Warning: Newsletter auto-create check failed: {e}")
 
         return {
             "message": "Post published to Blogger successfully",
