@@ -233,7 +233,7 @@ class BloggerClient:
                     blogId=self.blog_id,
                     maxResults=min(max_results - len(all_posts), 100),
                     pageToken=page_token,
-                    status='live'
+                    status='LIVE'
                 )
                 response = request.execute()
 
