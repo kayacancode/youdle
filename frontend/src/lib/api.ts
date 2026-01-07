@@ -271,6 +271,18 @@ class ApiClient {
     })
   }
 
+  async syncWithBlogger(): Promise<{
+    message: string
+    synced_count: number
+    blogger_posts_found: number
+    database_posts_checked: number
+    results: Array<{ id: string; title: string; action: string; old_status: string; new_status: string }>
+  }> {
+    return this.request('/api/generate/blogger/sync', {
+      method: 'POST',
+    })
+  }
+
   // Jobs
   async listJobs(params: {
     status?: string
