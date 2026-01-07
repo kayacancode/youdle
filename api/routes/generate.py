@@ -443,7 +443,7 @@ async def publish_post_to_blogger(post_id: str):
 async def unpublish_post_from_blogger(post_id: str):
     """
     Unpublish a blog post from Blogger.
-    Deletes the post from Blogger and resets status to reviewed.
+    Deletes the post from Blogger (if published there) and resets status to reviewed.
     """
     try:
         from supabase_storage import get_supabase_client
@@ -460,15 +460,8 @@ async def unpublish_post_from_blogger(post_id: str):
 
         post = result.data
 
-        # Check if published to Blogger
-        if not post.get("blogger_post_id"):
-            raise HTTPException(
-                status_code=400,
-                detail="Post is not published to Blogger"
-            )
-
-        # Delete from Blogger if configured
-        if blogger.is_configured():
+        # Delete from Blogger if it has a blogger_post_id and Blogger is configured
+        if post.get("blogger_post_id") and blogger.is_configured():
             try:
                 blogger.delete_post(post["blogger_post_id"])
             except Exception as e:
