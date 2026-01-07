@@ -115,6 +115,13 @@ jobs:
               exit 1
             fi
 
+            # Always show workflow logs for debugging (LangGraph logs go to stderr)
+            echo ""
+            echo "--- Workflow Logs (stderr) ---"
+            cat generation_error.log || echo "(no logs)"
+            echo "--- End Logs ---"
+            echo ""
+
             echo "Real generation_result.json content:"
             cat generation_result.json || echo "(empty or missing)"
           fi
