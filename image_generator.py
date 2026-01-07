@@ -1,16 +1,10 @@
 # image_generator.py
 # Google Gemini-powered image generation for Youdle blog posts
-#
-# Changes:
-# - Use a robust import for the Google Generative AI client (google.generativeai)
-# - Provide a helpful ImportError message when the client is not available
-# - Keep behavior identical otherwise
+# Uses the new google-genai SDK for image generation
 
 import os
 import base64
-import asyncio
 from typing import Optional, Dict, Any, List
-from concurrent.futures import ThreadPoolExecutor
 
 try:
     from dotenv import load_dotenv
@@ -18,27 +12,24 @@ try:
 except ImportError:
     pass
 
-# Robust import for the Google Generative AI client.
-# The package exposes its module as `google.generativeai`. Some installs
-# or namespace collisions (a legacy `google` package) can cause
-# `from google import genai` to fail. Prefer the explicit import and
-# provide a clear error message if it's not available.
-genai = None
+# Import the new google-genai SDK
+genai_client = None
+genai_types = None
 try:
-    import google.generativeai as genai  # preferred
-except Exception:
-    try:
-        # fallback: older or different packaging may expose `genai` on google
-        from google import genai  # type: ignore
-    except Exception:
-        genai = None
+    from google import genai
+    from google.genai import types as genai_types
+    genai_client = genai
+except ImportError:
+    pass
 
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
-DEFAULT_IMAGE_SIZE = 600  # pixels
+DEFAULT_IMAGE_SIZE = "1K"  # Options: "1K", "2K", "4K"
+DEFAULT_ASPECT_RATIO = "16:9"
+
 IMAGE_PROMPT_TEMPLATE = """Create a retail-safe image for a grocery-focused newsletter titled "{title}".
 
 Theme/Context: {theme}
@@ -51,13 +42,12 @@ Strictly follow these guidelines:
 - No UI overlays; no out-of-focus text
 - Clean, modern, inviting grocery store aesthetic
 - Focus on the products/items mentioned in the article
-- Size: {size}px width
 
 The image should be suitable for a professional newsletter about grocery shopping and consumer products."""
 
 
 class ImageGenerator:
-    """Google Gemini-powered image generator for blog posts using google.generativeai client."""
+    """Google Gemini-powered image generator using the new google-genai SDK."""
 
     def __init__(self, api_key: Optional[str] = None):
         """
@@ -66,48 +56,37 @@ class ImageGenerator:
         Args:
             api_key: Google Gemini API key (defaults to GEMINI_API_KEY env var)
         """
-        if genai is None:
+        if genai_client is None:
             raise ImportError(
-                "google.generativeai (google-generativeai) client not available. "
-                "Install it with `pip install google-generativeai` and ensure there is "
-                "no conflicting `google` package installed (run `pip uninstall google` if necessary)."
+                "google-genai SDK not available. "
+                "Install it with `pip install google-genai`"
             )
 
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY environment variable is not set")
 
-        # Initialize with google-generativeai
-        genai.configure(api_key=self.api_key)
-        # Use gemini-3-flash-preview for image generation
-        self.model_name = "gemini-3-flash-preview"
-        # Configure model with response_modalities to enable image output
-        self.generation_config = genai.types.GenerationConfig(
-            response_modalities=["TEXT", "IMAGE"]
-        )
-        self.model = genai.GenerativeModel(
-            self.model_name,
-            generation_config=self.generation_config
-        )
+        # Initialize the new client
+        self.client = genai_client.Client(api_key=self.api_key)
+        self.model_name = "gemini-3-pro-image-preview"
 
     def _create_image_prompt(
         self,
         title: str,
-        theme: str = "",
-        size: int = DEFAULT_IMAGE_SIZE
+        theme: str = ""
     ) -> str:
         """Create a detailed prompt for image generation."""
         return IMAGE_PROMPT_TEMPLATE.format(
             title=title,
-            theme=theme or "grocery shopping and consumer products",
-            size=size
+            theme=theme or "grocery shopping and consumer products"
         )
 
     def generate_image(
         self,
         title: str,
         theme: str = "",
-        size: int = DEFAULT_IMAGE_SIZE
+        aspect_ratio: str = DEFAULT_ASPECT_RATIO,
+        image_size: str = DEFAULT_IMAGE_SIZE
     ) -> Dict[str, Any]:
         """
         Generate an image for a blog post.
@@ -115,52 +94,65 @@ class ImageGenerator:
         Args:
             title: Blog post title
             theme: Additional theme/context for the image
-            size: Image width in pixels
+            aspect_ratio: Image aspect ratio (e.g., "16:9", "1:1")
+            image_size: Resolution ("1K", "2K", "4K")
 
         Returns:
             Dictionary with image_data (base64), format, and metadata
         """
-        prompt = self._create_image_prompt(title, theme, size)
+        prompt = self._create_image_prompt(title, theme)
 
         try:
-            print(f"[ImageGenerator] Generating image with model: {self.model_name} (response_modalities: TEXT, IMAGE)", flush=True)
+            print(f"[ImageGenerator] Generating image with model: {self.model_name}", flush=True)
             print(f"[ImageGenerator] Prompt: {prompt[:80]}...", flush=True)
 
-            response = self.model.generate_content(prompt)
+            # Use the new google-genai API
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=genai_types.GenerateContentConfig(
+                    response_modalities=["TEXT", "IMAGE"],
+                    image_config=genai_types.ImageConfig(
+                        aspect_ratio=aspect_ratio,
+                        image_size=image_size
+                    )
+                )
+            )
 
             # Debug: Print response structure
-            if getattr(response, "candidates", None):
-                candidate = response.candidates[0]
-                content = getattr(candidate, "content", None)
-                parts = getattr(content, "parts", None) if content else None
-                part_types = []
-                if parts:
-                    for part in parts:
-                        if hasattr(part, 'inline_data') and part.inline_data:
-                            part_types.append("IMAGE")
-                        elif hasattr(part, 'text') and part.text:
-                            part_types.append("TEXT")
-                print(f"[ImageGenerator] Response parts: {part_types if part_types else 'none'}", flush=True)
+            part_types = []
+            if hasattr(response, 'parts') and response.parts:
+                for part in response.parts:
+                    if hasattr(part, 'inline_data') and part.inline_data:
+                        part_types.append("IMAGE")
+                    elif hasattr(part, 'text') and part.text:
+                        part_types.append("TEXT")
+            print(f"[ImageGenerator] Response parts: {part_types if part_types else 'none'}", flush=True)
 
             # Extract image from response parts
-            if getattr(response, "candidates", None):
-                candidate = response.candidates[0]
-                content = getattr(candidate, "content", None)
-                parts = getattr(content, "parts", None)
-                if parts:
-                    for part in parts:
-                        if hasattr(part, 'inline_data') and part.inline_data:
-                            # Get the image bytes from inline_data
-                            image_bytes = part.inline_data.data
+            if hasattr(response, 'parts') and response.parts:
+                for part in response.parts:
+                    if hasattr(part, 'inline_data') and part.inline_data:
+                        # Get the image bytes from inline_data
+                        image_bytes = part.inline_data.data
+                        # Handle if already bytes or needs encoding
+                        if isinstance(image_bytes, bytes):
                             image_data = base64.b64encode(image_bytes).decode('utf-8')
-                            return {
-                                "success": True,
-                                "image_data": image_data,
-                                "format": getattr(part.inline_data, "mime_type", "image/png"),
-                                "metadata": {"model": self.model_name}
-                            }
+                        else:
+                            image_data = image_bytes  # Already base64 string
+
+                        mime_type = getattr(part.inline_data, "mime_type", "image/png")
+                        print(f"[ImageGenerator] ✓ Image generated successfully ({mime_type})", flush=True)
+
+                        return {
+                            "success": True,
+                            "image_data": image_data,
+                            "format": mime_type,
+                            "metadata": {"model": self.model_name}
+                        }
 
             # If no inline image found, return failure
+            print("[ImageGenerator] ✗ No image data in response", flush=True)
             return {
                 "success": False,
                 "error": "No image data in response",
@@ -170,7 +162,7 @@ class ImageGenerator:
             }
 
         except Exception as e:
-            print("[ImageGenerator] Image generation failed:", str(e))
+            print(f"[ImageGenerator] ✗ Image generation failed: {str(e)}", flush=True)
             return {
                 "success": False,
                 "error": str(e),
@@ -199,11 +191,12 @@ class PlaceholderImageGenerator:
         self,
         title: str,
         theme: str = "",
-        size: int = DEFAULT_IMAGE_SIZE
+        aspect_ratio: str = DEFAULT_ASPECT_RATIO,
+        image_size: str = DEFAULT_IMAGE_SIZE
     ) -> Dict[str, Any]:
         """Generate a placeholder image."""
         # Create a simple SVG placeholder
-        svg = f'''<svg width="{size}" height="{int(size * 9/16)}" xmlns="http://www.w3.org/2000/svg">
+        svg = f'''<svg width="600" height="338" xmlns="http://www.w3.org/2000/svg">
             <rect width="100%" height="100%" fill="#f0f0f0"/>
             <text x="50%" y="50%" text-anchor="middle" fill="#888" font-size="20">
                 {title[:30]}...
@@ -259,6 +252,6 @@ def get_image_generator(use_placeholder: bool = False) -> ImageGenerator:
 
     try:
         return ImageGenerator()
-    except ValueError:
-        print("Warning: GEMINI_API_KEY not set, using placeholder images")
+    except (ImportError, ValueError) as e:
+        print(f"Warning: Cannot initialize ImageGenerator ({e}), using placeholder images")
         return PlaceholderImageGenerator()
