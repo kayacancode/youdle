@@ -9,9 +9,12 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  Edit2
+  Edit2,
+  Users,
+  ChevronDown,
+  Settings
 } from 'lucide-react'
-import { api, Newsletter } from '@/lib/api'
+import { api, Newsletter, MailchimpAudience } from '@/lib/api'
 import { cn, getStatusColor } from '@/lib/utils'
 import { NewsletterCard } from '@/components/NewsletterCard'
 import { CreateNewsletterModal } from '@/components/CreateNewsletterModal'
@@ -30,6 +33,26 @@ export default function NewslettersPage() {
   const [selectedNewsletter, setSelectedNewsletter] = useState<Newsletter | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false)
+  const [isAudienceDropdownOpen, setIsAudienceDropdownOpen] = useState(false)
+
+  // Fetch audiences from Mailchimp
+  const { data: audiencesData, isLoading: audiencesLoading } = useQuery({
+    queryKey: ['mailchimp-audiences'],
+    queryFn: () => api.getMailchimpAudiences(),
+  })
+
+  // Set audience mutation
+  const setAudienceMutation = useMutation({
+    mutationFn: (audienceId: string) => api.setMailchimpAudience(audienceId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mailchimp-audiences'] })
+      setIsAudienceDropdownOpen(false)
+    },
+  })
+
+  const audiences = audiencesData?.audiences || []
+  const currentAudienceId = audiencesData?.current
+  const currentAudience = audiences.find(a => a.id === currentAudienceId)
 
   // Fetch newsletters
   const { data: newslettersData, isLoading, refetch } = useQuery({
@@ -141,6 +164,66 @@ export default function NewslettersPage() {
             </button>
           )
         })}
+      </div>
+
+      {/* Mailchimp Audience Selector */}
+      <div className="rounded-2xl bg-white border border-stone-200 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-100">
+              <Users className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-stone-900">Mailchimp Audience</p>
+              <p className="text-xs text-stone-500">
+                {audiencesLoading ? 'Loading...' : currentAudience
+                  ? `${currentAudience.name} (${currentAudience.member_count.toLocaleString()} subscribers)`
+                  : 'No audience selected'}
+              </p>
+            </div>
+          </div>
+
+          {/* Audience Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setIsAudienceDropdownOpen(!isAudienceDropdownOpen)}
+              disabled={audiencesLoading || audiences.length === 0}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-stone-100 text-stone-700 hover:bg-stone-200 transition-all disabled:opacity-50"
+            >
+              <Settings className="w-4 h-4" />
+              Change Audience
+              <ChevronDown className={cn("w-4 h-4 transition-transform", isAudienceDropdownOpen && "rotate-180")} />
+            </button>
+
+            {isAudienceDropdownOpen && audiences.length > 0 && (
+              <div className="absolute right-0 mt-2 w-64 rounded-xl bg-white border border-stone-200 shadow-lg z-10">
+                <div className="p-2">
+                  {audiences.map((audience) => (
+                    <button
+                      key={audience.id}
+                      onClick={() => setAudienceMutation.mutate(audience.id)}
+                      disabled={setAudienceMutation.isPending}
+                      className={cn(
+                        "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-left transition-all",
+                        audience.id === currentAudienceId
+                          ? "bg-purple-100 text-purple-700"
+                          : "hover:bg-stone-100 text-stone-700"
+                      )}
+                    >
+                      <div>
+                        <p className="font-medium">{audience.name}</p>
+                        <p className="text-xs text-stone-500">{audience.member_count.toLocaleString()} subscribers</p>
+                      </div>
+                      {audience.id === currentAudienceId && (
+                        <CheckCircle2 className="w-4 h-4 text-purple-600" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Newsletter Grid */}
