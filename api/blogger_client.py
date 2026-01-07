@@ -210,6 +210,45 @@ class BloggerClient:
         except HttpError as e:
             raise Exception(f"Blogger API error: {str(e)}")
 
+    def list_posts(self, max_results: int = 500) -> list:
+        """
+        List all posts from Blogger.
+
+        Args:
+            max_results: Maximum number of posts to fetch
+
+        Returns:
+            List of posts from Blogger
+        """
+        if not self.is_configured():
+            raise ValueError("Blogger API not configured.")
+
+        service = self._get_service()
+        all_posts = []
+        page_token = None
+
+        try:
+            while True:
+                request = service.posts().list(
+                    blogId=self.blog_id,
+                    maxResults=min(max_results - len(all_posts), 100),
+                    pageToken=page_token,
+                    status='live'
+                )
+                response = request.execute()
+
+                posts = response.get('items', [])
+                all_posts.extend(posts)
+
+                page_token = response.get('nextPageToken')
+                if not page_token or len(all_posts) >= max_results:
+                    break
+
+            return all_posts
+
+        except HttpError as e:
+            raise Exception(f"Blogger API error: {str(e)}")
+
 
 # Singleton instance
 _blogger_client = None

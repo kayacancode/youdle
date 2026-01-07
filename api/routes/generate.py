@@ -488,3 +488,94 @@ async def unpublish_post_from_blogger(post_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to unpublish from Blogger: {str(e)}")
 
 
+@router.post("/blogger/sync")
+async def sync_with_blogger():
+    """
+    Sync database posts with Blogger.
+    Matches posts by title and updates status/blogger fields accordingly.
+    """
+    try:
+        from supabase_storage import get_supabase_client
+        from blogger_client import get_blogger_client
+
+        supabase = get_supabase_client()
+        blogger = get_blogger_client()
+
+        if not blogger.is_configured():
+            raise HTTPException(
+                status_code=503,
+                detail="Blogger API not configured"
+            )
+
+        # Get all posts from Blogger
+        blogger_posts = blogger.list_posts()
+
+        # Get all posts from database
+        db_result = supabase.table("blog_posts").select("*").execute()
+        db_posts = db_result.data or []
+
+        # Create a map of Blogger posts by title (normalized)
+        blogger_by_title = {}
+        for bp in blogger_posts:
+            title = bp.get('title', '').strip().lower()
+            blogger_by_title[title] = bp
+
+        # Also create a map by blogger_post_id for posts we already know about
+        blogger_by_id = {bp.get('id'): bp for bp in blogger_posts}
+
+        synced_count = 0
+        results = []
+
+        for db_post in db_posts:
+            title = db_post.get('title', '').strip().lower()
+            existing_blogger_id = db_post.get('blogger_post_id')
+
+            # Check if this post exists in Blogger
+            blogger_post = None
+
+            # First check by blogger_post_id if we have one
+            if existing_blogger_id and existing_blogger_id in blogger_by_id:
+                blogger_post = blogger_by_id[existing_blogger_id]
+            # Otherwise try to match by title
+            elif title in blogger_by_title:
+                blogger_post = blogger_by_title[title]
+
+            if blogger_post:
+                # Post exists in Blogger - update database
+                update_data = {
+                    "status": "published",
+                    "blogger_post_id": blogger_post.get('id'),
+                    "blogger_url": blogger_post.get('url'),
+                    "blogger_published_at": blogger_post.get('published'),
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+
+                # Only update if something changed
+                if (db_post.get('status') != 'published' or
+                    db_post.get('blogger_post_id') != blogger_post.get('id') or
+                    db_post.get('blogger_url') != blogger_post.get('url')):
+
+                    supabase.table("blog_posts").update(update_data).eq("id", db_post['id']).execute()
+                    synced_count += 1
+                    results.append({
+                        "id": db_post['id'],
+                        "title": db_post.get('title'),
+                        "action": "synced",
+                        "old_status": db_post.get('status'),
+                        "new_status": "published"
+                    })
+
+        return {
+            "message": f"Sync completed. {synced_count} posts updated.",
+            "synced_count": synced_count,
+            "blogger_posts_found": len(blogger_posts),
+            "database_posts_checked": len(db_posts),
+            "results": results
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to sync with Blogger: {str(e)}")
+
+

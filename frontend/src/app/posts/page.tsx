@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FileText, Filter, RefreshCw, ShoppingCart, AlertOctagon, Trash2 } from 'lucide-react'
+import { FileText, Filter, RefreshCw, ShoppingCart, AlertOctagon, Trash2, Globe } from 'lucide-react'
 import { api, type BlogPostUpdate } from '@/lib/api'
 import { BlogPostPreview } from '@/components/BlogPostPreview'
 import { cn, getStatusColor } from '@/lib/utils'
@@ -68,6 +68,17 @@ export default function PostsPage() {
     },
   })
 
+  const syncWithBloggerMutation = useMutation({
+    mutationFn: () => api.syncWithBlogger(),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] })
+      alert(`Sync complete! ${data.synced_count} posts updated.`)
+    },
+    onError: (error) => {
+      alert(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    },
+  })
+
   const handleStatusChange = (postId: string, status: string) => {
     updateStatusMutation.mutate({ postId, status })
   }
@@ -114,20 +125,34 @@ export default function PostsPage() {
             View and manage generated blog posts. Update status and copy HTML for publishing.
           </p>
         </div>
-        {posts && posts.length > 0 && (
+        <div className="flex items-center gap-3">
           <button
-            onClick={handleDeleteAll}
-            disabled={deleteAllPostsMutation.isPending}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm transition-all bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => syncWithBloggerMutation.mutate()}
+            disabled={syncWithBloggerMutation.isPending}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm transition-all bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {deleteAllPostsMutation.isPending ? (
+            {syncWithBloggerMutation.isPending ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
             ) : (
-              <Trash2 className="w-4 h-4" />
+              <Globe className="w-4 h-4" />
             )}
-            Delete All
+            Sync with Blogger
           </button>
-        )}
+          {posts && posts.length > 0 && (
+            <button
+              onClick={handleDeleteAll}
+              disabled={deleteAllPostsMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm transition-all bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deleteAllPostsMutation.isPending ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+              Delete All
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
