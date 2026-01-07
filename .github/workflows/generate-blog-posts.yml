@@ -60,6 +60,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          IMGBB_API_KEY: ${{ secrets.IMGBB_API_KEY }}
         run: |
           echo "GITHUB_EVENT_NAME: $GITHUB_EVENT_NAME"
           echo "GITHUB_ACTOR: $GITHUB_ACTOR"
@@ -67,7 +68,7 @@ jobs:
           echo "GITHUB_REF: $GITHUB_REF"
           echo ""
           missing=false
-          for s in EXA_API_KEY OPENAI_API_KEY GEMINI_API_KEY SUPABASE_URL SUPABASE_KEY; do
+          for s in EXA_API_KEY OPENAI_API_KEY GEMINI_API_KEY SUPABASE_URL SUPABASE_KEY IMGBB_API_KEY; do
             if [ -z "${!s}" ]; then
               echo "$s: EMPTY"
               missing=true
@@ -87,6 +88,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          IMGBB_API_KEY: ${{ secrets.IMGBB_API_KEY }}
         run: |
           if ${{ github.event.inputs.debug_mode == 'true' }}; then
             echo "🟡 DEBUG MODE ENABLED: Skipping real generation, creating fake JSON..."
