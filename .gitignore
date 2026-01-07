@@ -37,3 +37,4 @@ build/
 
 # Handoff summaries (session context)
 .handoffs/
+.mcp.json

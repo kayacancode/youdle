@@ -4,6 +4,7 @@
 import os
 import json
 from datetime import datetime
+from html import escape, unescape
 from typing import Dict, Any, List, Optional
 
 try:
@@ -23,114 +24,197 @@ except ImportError:
 # CONFIGURATION
 # ============================================================================
 
-NEWSLETTER_TEMPLATE = """
-<!DOCTYPE html>
-<html>
+EMAIL_SUBJECT = "Youdle grocery news to save you time and money"
+NEWSLETTER_DESCRIPTION = "Your weekly guide to grocery savings, food safety alerts, and what's trending in stores."
+
+NEWSLETTER_TEMPLATE = """<!doctype html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Youdle Weekly Newsletter</title>
-    <style>
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-        }}
-        .header {{
-            text-align: center;
-            padding: 20px 0;
-            border-bottom: 2px solid #4CAF50;
-        }}
-        .header h1 {{
-            color: #4CAF50;
-            margin: 0;
-        }}
-        .section {{
-            padding: 20px 0;
-            border-bottom: 1px solid #eee;
-        }}
-        .section h2 {{
-            color: #333;
-            margin-bottom: 15px;
-        }}
-        .article-list {{
-            list-style: none;
-            padding: 0;
-        }}
-        .article-list li {{
-            padding: 10px 0;
-            border-bottom: 1px solid #f0f0f0;
-        }}
-        .article-list li:last-child {{
-            border-bottom: none;
-        }}
-        .article-link {{
-            color: #2196F3;
-            text-decoration: none;
-            font-weight: 500;
-        }}
-        .article-link:hover {{
-            text-decoration: underline;
-        }}
-        .recall-section {{
-            background-color: #fff3cd;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
-        }}
-        .recall-section h2 {{
-            color: #856404;
-        }}
-        .footer {{
-            text-align: center;
-            padding: 20px 0;
-            color: #666;
-            font-size: 14px;
-        }}
-        .footer a {{
-            color: #4CAF50;
-        }}
-    </style>
+  <!--[if gte mso 15]>
+  <xml>
+    <o:OfficeDocumentSettings>
+      <o:AllowPNG/>
+      <o:PixelsPerInch>96</o:PixelsPerInch>
+    </o:OfficeDocumentSettings>
+  </xml>
+  <![endif]-->
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grocery Retail Newsletter</title>
+  <style type="text/css">
+    body, #bodyTable, #bodyCell {{ margin:0; padding:0; width:100%; height:100%; }}
+    table {{ border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt; }}
+    img, a img {{ border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; }}
+    p {{ margin:10px 0; padding:0; }}
+    h1,h2,h3,h4,h5,h6 {{ margin:0; padding:0; display:block; }}
+
+    .ExternalClass, .ExternalClass p, .ExternalClass td, .ExternalClass div, .ExternalClass span, .ExternalClass font {{ line-height:100%; width:100%; }}
+    .ReadMsgBody {{ width:100%; }}
+    a[x-apple-data-detectors] {{ color:inherit !important; text-decoration:none !important; font-size:inherit !important; font-family:inherit !important; font-weight:inherit !important; line-height:inherit !important; }}
+    a[href^="tel"], a[href^="sms"] {{ text-decoration:none; color:inherit; cursor:default; }}
+
+    #templateHeader, #templateBody, #templateFooter {{ background-size:cover; background-repeat:no-repeat; background-position:center; border-top:0; border-bottom:0; }}
+    #templateHeader {{ background-color:#ffffff; padding:54px 0; }}
+    #templateBody   {{ background-color:#ffffff; padding:27px 0 63px; }}
+    #templateFooter {{ background-color:#333333; padding:45px 0 63px; }}
+
+    .templateContainer {{ max-width:600px !important; }}
+    .headerContainer .mcnTextContent,
+    .bodyContainer .mcnTextContent,
+    .footerContainer .mcnTextContent {{ font-family:Helvetica, Arial, sans-serif; line-height:150%; }}
+
+    .headerContainer .mcnTextContent {{ color:#757575; font-size:16px; text-align:left; }}
+    .headerContainer .mcnTextContent a {{ color:#007C89; text-decoration:underline; }}
+    .bodyContainer .mcnTextContent {{ color:#757575; font-size:16px; text-align:left; }}
+    .bodyContainer .mcnTextContent a {{ color:#007C89; text-decoration:underline; }}
+    .footerContainer .mcnTextContent {{ color:#FFFFFF; font-size:12px; text-align:center; }}
+    .footerContainer .mcnTextContent a {{ color:#FFFFFF; text-decoration:underline; }}
+
+    h1 {{ color:#222222; font-family:Helvetica; font-size:40px; font-weight:bold; line-height:150%; text-align:left; }}
+    h2 {{ color:#222222; font-family:Helvetica; font-size:28px; font-weight:bold; line-height:150%; text-align:left; }}
+    h3 {{ color:#444444; font-family:Helvetica; font-size:22px; font-weight:bold; line-height:150%; text-align:left; }}
+    h4 {{ color:#949494; font-family:Georgia; font-size:20px; font-style:italic; line-height:125%; text-align:left; }}
+
+    @media only screen and (max-width:480px){{
+      body, table, td, p, a, li, blockquote {{ -webkit-text-size-adjust:none !important; }}
+      body {{ width:100% !important; min-width:100% !important; }}
+      .mcnImage {{ width:100% !important; }}
+      .mcnRetinaImage {{ max-width:100% !important; }}
+      .templateContainer {{ width:100% !important; }}
+      h1 {{ font-size:30px !important; line-height:125% !important; }}
+      h2 {{ font-size:26px !important; line-height:125% !important; }}
+      h3 {{ font-size:20px !important; line-height:150% !important; }}
+      h4 {{ font-size:18px !important; line-height:150% !important; }}
+      .mcnTextContent {{ padding:0 18px !important; font-size:16px !important; line-height:150% !important; }}
+    }}
+  </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🛒 Youdle Weekly</h1>
-        <p>Your grocery insights, delivered fresh</p>
-    </div>
-    
-    <div class="section">
-        <h2>📰 This Week's Top Stories</h2>
-        <ul class="article-list">
-            {article_links}
-        </ul>
-    </div>
-    
-    {recall_section}
-    
-    <div class="footer">
-        <p>
-            <a href="https://www.youdle.io/">Visit Youdle</a> | 
-            <a href="https://www.youdle.io/community">Join the Community</a>
-        </p>
-        <p>© {year} Youdle. All rights reserved.</p>
-        <p><small>You're receiving this email because you subscribed to Youdle updates.</small></p>
-    </div>
+  <center>
+    <table id="bodyTable" width="100%" height="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td id="bodyCell" align="center" valign="top">
+
+          <!-- HEADER -->
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td id="templateHeader" align="center" valign="top">
+                <table class="templateContainer" width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td class="headerContainer" align="center">
+                      <img src="https://mcusercontent.com/a8e33153b11c8b750221ce4aa/images/5f2d9977-bf45-cdb6-23dd-0c18573407e4.png" width="113" style="display:block; max-width:100%;" alt="Youdle Logo">
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <!-- BODY -->
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td id="templateBody" align="center" valign="top">
+                <table class="templateContainer" width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td class="bodyContainer">
+
+                      <!-- Intro -->
+                      <table width="100%" cellpadding="0" cellspacing="0" class="mcnCaptionBlock">
+                        <tr>
+                          <td class="mcnCaptionBlockInner" style="padding:9px;">
+                            <table align="left" width="100%" class="mcnCaptionBottomContent" cellpadding="0" cellspacing="0">
+                              <tr>
+                                <td class="mcnTextContent" style="padding:0 18px;">
+                                  <h2>Welcome to Our Grocery Newsletter</h2>
+                                  <p>Grocery retail trends, shopper insights, and inventory tips—built for shoppers, independent store owners and emergency managers.</p>
+
+                                  <!-- Article List -->
+                                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                                    <tr><td style="padding:18px;">
+                                      <ul style="padding-left:18px; margin:0;">
+                                        {article_links}
+                                      </ul>
+                                    </td></tr>
+                                  </table>
+
+                                  {recall_section}
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <!-- Sponsors -->
+                      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse; margin:0; padding:0;">
+                        <tr>
+                          <td align="center" valign="top" style="margin:0; padding:0;">
+                            <p style="margin:18px 0 12px; font-weight:bold; font-size:16px;">SPONSORS</p>
+                            <a href="http://youdle.io/" target="_blank" style="display:block; margin:0; padding:0;">
+                              <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjR5B9lMXv8puWdDrQFWmN2mqQyBefSvy2CAsZV4OIigpfXxKNjCK_Nplbbfg4FWx4pUYv7S2gXFarP8lWaSigTg2nRozbZ6u_eMhyphenhyphengPW32tCB0ApUwyWu1L_Xc18KppPVbY4_OKd-99HCFz-Zc82NwFQnJxA7BbAFsHdF6GeHsZYqixyUllrWVpcpkLT58/s700/(700%20x%20150%20px)%20Green%20Groceries%20Home%20Delivery%20App%20Instagram%20Post%20(1).png" alt="Youdle Sponsor" border="0" style="max-width:100%;">
+                            </a>
+                            <!-- Button -->
+                            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;">
+                              <tr>
+                                <td align="center">
+                                  <a href="http://youdle.io/" target="_blank" style="background-color:#f93822; color:#ffffff; text-decoration:none; font-weight:bold; font-family:Helvetica, Arial, sans-serif; padding:12px 24px; border-radius:4px; display:inline-block;">
+                                    Let's Get Started
+                                  </a>
+                                </td>
+                              </tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <!-- FOOTER -->
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td id="templateFooter" align="center" valign="top">
+                <table class="templateContainer" width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td class="footerContainer" align="center" style="padding:18px;">
+                      <table width="100%" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td class="mcnTextContent" style="color:#FFFFFF; text-align:center;">
+                            <p style="color:#FFFFFF;"><em>Copyright © {year} Youdle, All rights reserved.</em></p>
+                            <p style="color:#FFFFFF;"><strong>Contact us:</strong></p>
+                            <p><a href="mailto:info@getyoudle.com" style="color:#FFFFFF;">info@getyoudle.com</a></p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+        </td>
+      </tr>
+    </table>
+  </center>
 </body>
-</html>
-"""
+</html>"""
 
 RECALL_SECTION_TEMPLATE = """
-    <div class="recall-section">
-        <h2>⚠️ Recall Alert</h2>
-        <p>Stay informed about the latest food safety recalls:</p>
-        <ul class="article-list">
-            {recall_links}
-        </ul>
-    </div>
-"""
+                                  <!-- Weekly Recall Roundup -->
+                                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                                    <tr><td style="padding:18px;">
+                                      <h2 style="margin:0 0 12px 0; font-size:20px; color:#1B1B1B; font-weight:700;">Weekly Recall Roundup</h2>
+                                      <ul style="padding-left:18px; margin:0;">
+                                        {recall_links}
+                                      </ul>
+                                    </td></tr>
+                                  </table>"""
 
 
 class MailchimpCampaign:
@@ -170,18 +254,46 @@ class MailchimpCampaign:
         self,
         title: str,
         url: str,
-        category: str = ""
+        category: str = "",
+        summary: str = ""
     ) -> str:
-        """Format an article as an HTML list item."""
-        return f'<li><a href="{url}" class="article-link">{title}</a></li>'
+        """Format an article as an HTML list item with optional summary."""
+        title_escaped = escape(title)
+        url_escaped = escape(url)
+
+        # Truncate and escape summary (max 240 chars)
+        summary_raw = (summary or "")[:240]
+        summary_escaped = escape(unescape(summary_raw))
+        summary_html = f'<div style="color:#555; font-weight:400; margin-top:4px;">{summary_escaped}</div>' if summary_escaped else ""
+
+        return (
+            '<li style="margin:0 0 12px 0; line-height:1.5;">'
+            f'<a href="{url_escaped}" target="_blank" style="color:#007C89; text-decoration:none; font-weight:600;">{title_escaped}</a>'
+            f'{summary_html}'
+            '</li>'
+        )
     
     def _format_recall_link(
         self,
         title: str,
-        url: str
+        url: str,
+        summary: str = ""
     ) -> str:
-        """Format a recall article as an HTML list item."""
-        return f'<li><a href="{url}" class="article-link">⚠️ {title}</a></li>'
+        """Format a recall article as an HTML list item with optional summary."""
+        title_escaped = escape(title)
+        url_escaped = escape(url)
+
+        # Truncate and escape summary (max 240 chars)
+        summary_raw = (summary or "")[:240]
+        summary_escaped = escape(unescape(summary_raw))
+        summary_html = f'<div style="color:#555; font-weight:400; margin-top:4px;">{summary_escaped}</div>' if summary_escaped else ""
+
+        return (
+            '<li style="margin:0 0 12px 0; line-height:1.5;">'
+            f'<a href="{url_escaped}" target="_blank" style="color:#B8860B; text-decoration:none; font-weight:600;">⚠️ {title_escaped}</a>'
+            f'{summary_html}'
+            '</li>'
+        )
     
     def create_newsletter_html(
         self,
@@ -198,22 +310,24 @@ class MailchimpCampaign:
         Returns:
             HTML newsletter content
         """
-        # Format article links
+        # Format article links with summaries
         article_links = "\n            ".join([
             self._format_article_link(
                 title=a.get("title", "Article"),
                 url=a.get("url", a.get("link", "#")),
-                category=a.get("category", "")
+                category=a.get("category", ""),
+                summary=a.get("summary", a.get("description", ""))
             )
             for a in articles[:6]
         ])
-        
-        # Format recall section
+
+        # Format recall section with summaries
         if recall_articles:
             recall_links = "\n            ".join([
                 self._format_recall_link(
                     title=a.get("title", "Recall Alert"),
-                    url=a.get("url", a.get("link", "#"))
+                    url=a.get("url", a.get("link", "#")),
+                    summary=a.get("summary", a.get("description", ""))
                 )
                 for a in recall_articles[:3]
             ])
@@ -234,7 +348,7 @@ class MailchimpCampaign:
         html_content: str,
         list_id: Optional[str] = None,
         from_name: str = "Youdle",
-        reply_to: str = "newsletter@youdle.io"
+        reply_to: str = "info@getyoudle.com"
     ) -> Dict[str, Any]:
         """
         Create a Mailchimp campaign.
@@ -440,7 +554,8 @@ def load_published_posts(
                         "url": blogger_url,
                         "category": metadata.get("category", "SHOPPERS"),
                         "original_link": metadata.get("original_link", ""),
-                        "generated_at": metadata.get("generated_at", "")
+                        "generated_at": metadata.get("generated_at", ""),
+                        "summary": metadata.get("summary", metadata.get("description", ""))
                     })
                 elif not approved_only:
                     # Include unpublished posts
@@ -449,7 +564,8 @@ def load_published_posts(
                         "url": metadata.get("original_link", "#"),
                         "category": metadata.get("category", "SHOPPERS"),
                         "original_link": metadata.get("original_link", ""),
-                        "generated_at": metadata.get("generated_at", "")
+                        "generated_at": metadata.get("generated_at", ""),
+                        "summary": metadata.get("summary", metadata.get("description", ""))
                     })
             except Exception as e:
                 print(f"Warning: Could not load {filename}: {e}")

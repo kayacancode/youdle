@@ -59,8 +59,58 @@ export interface SystemStats {
       recall: number
     }
   }
+  newsletters: {
+    total: number
+    draft: number
+    scheduled: number
+    sent: number
+  }
   timestamp: string
   error?: string
+}
+
+// Newsletter types
+export interface BlogPostSummary {
+  id: string
+  title: string
+  category: string
+  blogger_url: string | null
+}
+
+export interface Newsletter {
+  id: string
+  title: string
+  subject: string
+  html_content: string
+  status: 'draft' | 'scheduled' | 'sent' | 'failed'
+  mailchimp_campaign_id: string | null
+  mailchimp_web_id: string | null
+  scheduled_for: string | null
+  sent_at: string | null
+  emails_sent: number
+  open_rate: number | null
+  click_rate: number | null
+  error: string | null
+  created_at: string
+  updated_at: string
+  posts: BlogPostSummary[]
+}
+
+export interface NewsletterCreate {
+  title?: string
+  subject?: string
+  post_ids: string[]
+}
+
+export interface NewsletterUpdate {
+  title?: string
+  subject?: string
+  post_ids?: string[]
+}
+
+export interface NewsletterListResponse {
+  newsletters: Newsletter[]
+  total: number
 }
 
 export interface BlogPostUpdate {
@@ -237,6 +287,71 @@ class ApiClient {
 
   async cleanupOldJobs(daysOld = 30): Promise<{ message: string; deleted_count: number }> {
     return this.request(`/api/jobs/cleanup?days_old=${daysOld}`, { method: 'POST' })
+  }
+
+  // Newsletters
+  async listNewsletters(params: {
+    status?: string
+    limit?: number
+    offset?: number
+  } = {}): Promise<NewsletterListResponse> {
+    const queryParams = new URLSearchParams()
+    if (params.status) queryParams.set('status', params.status)
+    if (params.limit) queryParams.set('limit', String(params.limit))
+    if (params.offset) queryParams.set('offset', String(params.offset))
+
+    const query = queryParams.toString()
+    return this.request(`/api/newsletters${query ? `?${query}` : ''}`)
+  }
+
+  async getNewsletter(id: string): Promise<Newsletter> {
+    return this.request(`/api/newsletters/${id}`)
+  }
+
+  async createNewsletter(data: NewsletterCreate): Promise<Newsletter> {
+    return this.request('/api/newsletters', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateNewsletter(id: string, data: NewsletterUpdate): Promise<Newsletter> {
+    return this.request(`/api/newsletters/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteNewsletter(id: string): Promise<{ message: string; id: string }> {
+    return this.request(`/api/newsletters/${id}`, { method: 'DELETE' })
+  }
+
+  async previewNewsletter(id: string): Promise<{ html: string }> {
+    return this.request(`/api/newsletters/${id}/preview`)
+  }
+
+  async scheduleNewsletter(id: string): Promise<Newsletter> {
+    return this.request(`/api/newsletters/${id}/schedule`, { method: 'POST' })
+  }
+
+  async sendNewsletter(id: string): Promise<Newsletter> {
+    return this.request(`/api/newsletters/${id}/send`, { method: 'POST' })
+  }
+
+  async unscheduleNewsletter(id: string): Promise<Newsletter> {
+    return this.request(`/api/newsletters/${id}/unschedule`, { method: 'POST' })
+  }
+
+  async getPublishedPostsForNewsletter(): Promise<BlogPostSummary[]> {
+    return this.request('/api/newsletters/published-posts')
+  }
+
+  async autoCreateNewsletter(): Promise<Newsletter> {
+    return this.request('/api/newsletters/auto-create', { method: 'POST' })
+  }
+
+  async syncNewsletterStats(id: string): Promise<Newsletter> {
+    return this.request(`/api/newsletters/${id}/sync-stats`, { method: 'POST' })
   }
 }
 

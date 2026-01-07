@@ -72,21 +72,79 @@ CREATE INDEX idx_feedback_post_id ON feedback(post_id);
 CREATE INDEX idx_feedback_rating ON feedback(rating);
 
 -- ============================================================================
+-- Newsletters Table (for email campaigns)
+-- Tracks Mailchimp newsletter campaigns
+-- ============================================================================
+DROP TABLE IF EXISTS newsletter_posts CASCADE;
+DROP TABLE IF EXISTS newsletters CASCADE;
+CREATE TABLE newsletters (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    html_content TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'sent', 'failed')),
+    mailchimp_campaign_id TEXT,
+    mailchimp_web_id TEXT,
+    scheduled_for TIMESTAMPTZ,
+    sent_at TIMESTAMPTZ,
+    emails_sent INTEGER DEFAULT 0,
+    open_rate DECIMAL(5,2),
+    click_rate DECIMAL(5,2),
+    error TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for faster status queries
+CREATE INDEX idx_newsletters_status ON newsletters(status);
+CREATE INDEX idx_newsletters_created_at ON newsletters(created_at DESC);
+
+-- ============================================================================
+-- Newsletter Posts Junction Table
+-- Links newsletters to blog posts
+-- ============================================================================
+CREATE TABLE newsletter_posts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    newsletter_id UUID NOT NULL REFERENCES newsletters(id) ON DELETE CASCADE,
+    blog_post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
+    position INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(newsletter_id, blog_post_id)
+);
+
+-- Indexes for junction table
+CREATE INDEX idx_newsletter_posts_newsletter ON newsletter_posts(newsletter_id);
+CREATE INDEX idx_newsletter_posts_blog_post ON newsletter_posts(blog_post_id);
+
+-- Trigger for newsletters updated_at
+DROP TRIGGER IF EXISTS update_newsletters_updated_at ON newsletters;
+CREATE TRIGGER update_newsletters_updated_at
+    BEFORE UPDATE ON newsletters
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================================
 -- Row Level Security (RLS)
 -- Enable RLS but allow all operations for now (no auth)
 -- ============================================================================
 ALTER TABLE job_queue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blog_posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE newsletters ENABLE ROW LEVEL SECURITY;
+ALTER TABLE newsletter_posts ENABLE ROW LEVEL SECURITY;
 
 -- Allow all operations (adjust for production with proper auth)
 DROP POLICY IF EXISTS "Allow all for job_queue" ON job_queue;
 DROP POLICY IF EXISTS "Allow all for blog_posts" ON blog_posts;
 DROP POLICY IF EXISTS "Allow all for feedback" ON feedback;
+DROP POLICY IF EXISTS "Allow all for newsletters" ON newsletters;
+DROP POLICY IF EXISTS "Allow all for newsletter_posts" ON newsletter_posts;
 
 CREATE POLICY "Allow all for job_queue" ON job_queue FOR ALL USING (true);
 CREATE POLICY "Allow all for blog_posts" ON blog_posts FOR ALL USING (true);
 CREATE POLICY "Allow all for feedback" ON feedback FOR ALL USING (true);
+CREATE POLICY "Allow all for newsletters" ON newsletters FOR ALL USING (true);
+CREATE POLICY "Allow all for newsletter_posts" ON newsletter_posts FOR ALL USING (true);
 
 -- ============================================================================
 -- Functions and Triggers
@@ -135,10 +193,17 @@ EXCEPTION WHEN OTHERS THEN
     RAISE NOTICE 'Could not add feedback to realtime: %', SQLERRM;
 END $$;
 
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE newsletters;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'Could not add newsletters to realtime: %', SQLERRM;
+END $$;
+
 -- ============================================================================
 -- Success message
 -- ============================================================================
 DO $$
 BEGIN
-    RAISE NOTICE 'Schema created successfully! Tables: job_queue, blog_posts, feedback';
+    RAISE NOTICE 'Schema created successfully! Tables: job_queue, blog_posts, feedback, newsletters, newsletter_posts';
 END $$;
