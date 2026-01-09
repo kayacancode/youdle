@@ -9,9 +9,10 @@ interface ModalProps {
   onClose: () => void
   title: string
   children: React.ReactNode
+  footer?: React.ReactNode
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) {
   // Close on ESC key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -59,9 +60,16 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-140px)]">
+        <div className={`overflow-y-auto ${footer ? 'max-h-[calc(90vh-200px)]' : 'max-h-[calc(90vh-140px)]'}`}>
           {children}
         </div>
+
+        {/* Footer - fixed at bottom */}
+        {footer && (
+          <div className="flex-shrink-0 border-t border-stone-200 bg-white p-4">
+            {footer}
+          </div>
+        )}
       </div>
     </div>,
     document.body

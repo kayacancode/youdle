@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Save, X, AlertCircle } from 'lucide-react'
+import { Save, X, AlertCircle, Globe } from 'lucide-react'
 import { Modal } from './Modal'
 import type { BlogPostUpdate } from '@/lib/api'
 
@@ -14,6 +14,8 @@ interface BlogPost {
   status: string
   article_url: string
   created_at: string
+  blogger_post_id?: string | null
+  blogger_url?: string | null
 }
 
 interface EditBlogPostModalProps {
@@ -75,8 +77,43 @@ export function EditBlogPostModal({ isOpen, post, onClose, onSave }: EditBlogPos
     }
   }
 
+  const isPublishedToBlogger = !!post.blogger_post_id
+
+  const footerContent = (
+    <div className="flex items-center justify-between">
+      {/* Blogger sync indicator */}
+      {isPublishedToBlogger ? (
+        <div className="flex items-center gap-1.5 text-xs text-blue-600">
+          <Globe className="w-3.5 h-3.5" />
+          <span>Changes will sync to Blogger</span>
+        </div>
+      ) : (
+        <div />
+      )}
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleCancel}
+          disabled={isSaving}
+          className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all bg-stone-100 text-stone-700 hover:bg-stone-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <X className="w-4 h-4" />
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={isSaving || !formData.html_content?.trim()}
+          className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all bg-youdle-500 text-white hover:bg-youdle-600 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Save className="w-4 h-4" />
+          {isSaving ? 'Saving...' : 'Save Changes'}
+        </button>
+      </div>
+    </div>
+  )
+
   return (
-    <Modal isOpen={isOpen} onClose={handleCancel} title={`Edit: ${post.title}`}>
+    <Modal isOpen={isOpen} onClose={handleCancel} title={`Edit: ${post.title}`} footer={footerContent}>
       <div className="p-6 space-y-4">
         {/* Error Message */}
         {error && (
@@ -136,26 +173,6 @@ export function EditBlogPostModal({ isOpen, post, onClose, onSave }: EditBlogPos
           <p className="mt-1 text-xs text-stone-500">
             {formData.html_content?.length || 0} characters
           </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-2 pt-4 border-t border-stone-200">
-          <button
-            onClick={handleCancel}
-            disabled={isSaving}
-            className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all bg-stone-100 text-stone-700 hover:bg-stone-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <X className="w-4 h-4" />
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving || !formData.html_content?.trim()}
-            className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all bg-accent-500 text-white hover:bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Save className="w-4 h-4" />
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </button>
         </div>
       </div>
     </Modal>
