@@ -4,6 +4,9 @@ Endpoints for blog post generation.
 """
 import sys
 import os
+import re
+from html import unescape
+from difflib import SequenceMatcher
 from uuid import uuid4
 from typing import Optional, List
 from datetime import datetime
@@ -305,6 +308,7 @@ class BlogPostUpdate(BaseModel):
 async def update_blog_post(post_id: str, updates: BlogPostUpdate):
     """
     Update blog post content (html_content, image_url, category).
+    If the post is published to Blogger (has blogger_post_id), also updates Blogger.
     """
     if updates.category and updates.category.upper() not in ["SHOPPERS", "RECALL"]:
         raise HTTPException(status_code=400, detail="Invalid category. Must be: SHOPPERS or RECALL")
@@ -312,6 +316,14 @@ async def update_blog_post(post_id: str, updates: BlogPostUpdate):
     try:
         from supabase_storage import get_supabase_client
         supabase = get_supabase_client()
+
+        # First, get the current post to check if it has blogger_post_id
+        current_post = supabase.table("blog_posts").select("*").eq("id", post_id).single().execute()
+        if not current_post.data:
+            raise HTTPException(status_code=404, detail="Post not found")
+
+        post_data = current_post.data
+        blogger_post_id = post_data.get("blogger_post_id")
 
         # Build update dict from provided fields only
         update_data = {}
@@ -328,12 +340,49 @@ async def update_blog_post(post_id: str, updates: BlogPostUpdate):
         # Always update the updated_at timestamp
         update_data["updated_at"] = datetime.utcnow().isoformat()
 
+        # Update local database
         result = supabase.table("blog_posts").update(update_data).eq("id", post_id).execute()
 
         if not result.data:
             raise HTTPException(status_code=404, detail="Post not found")
 
-        return {"message": "Post updated successfully", "post": result.data[0]}
+        updated_post = result.data[0]
+
+        # If post is published to Blogger, sync the changes
+        blogger_sync_result = None
+        if blogger_post_id:
+            try:
+                from blogger_client import get_blogger_client
+                blogger = get_blogger_client()
+
+                if blogger.is_configured():
+                    # Prepare update for Blogger
+                    blogger_update_kwargs = {}
+                    if updates.html_content is not None:
+                        blogger_update_kwargs["html_content"] = updates.html_content
+                    if updates.category is not None:
+                        blogger_update_kwargs["labels"] = [updates.category.upper()]
+
+                    if blogger_update_kwargs:
+                        blogger_sync_result = blogger.update_post(
+                            blogger_post_id=blogger_post_id,
+                            **blogger_update_kwargs
+                        )
+            except Exception as blogger_err:
+                # Don't fail the whole request if Blogger sync fails
+                blogger_sync_result = {"error": str(blogger_err)}
+
+        response = {
+            "message": "Post updated successfully",
+            "post": updated_post
+        }
+
+        if blogger_post_id:
+            response["blogger_synced"] = blogger_sync_result is not None and "error" not in (blogger_sync_result or {})
+            if blogger_sync_result and "error" in blogger_sync_result:
+                response["blogger_sync_error"] = blogger_sync_result["error"]
+
+        return response
 
     except HTTPException:
         raise
@@ -488,11 +537,35 @@ async def unpublish_post_from_blogger(post_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to unpublish from Blogger: {str(e)}")
 
 
+def normalize_title(title: str) -> str:
+    """Normalize title for comparison: strip HTML, decode entities, lowercase, normalize whitespace."""
+    if not title:
+        return ""
+    # Strip HTML tags
+    title = re.sub(r'<[^>]+>', '', title)
+    # Decode HTML entities
+    title = unescape(title)
+    # Lowercase and strip
+    title = title.lower().strip()
+    # Normalize whitespace
+    title = re.sub(r'\s+', ' ', title)
+    return title
+
+
+def title_similarity(title1: str, title2: str) -> float:
+    """Calculate similarity ratio between two normalized titles."""
+    norm1 = normalize_title(title1)
+    norm2 = normalize_title(title2)
+    if not norm1 or not norm2:
+        return 0.0
+    return SequenceMatcher(None, norm1, norm2).ratio()
+
+
 @router.post("/blogger/sync")
 async def sync_with_blogger():
     """
     Sync database posts with Blogger.
-    Matches posts by title and updates status/blogger fields accordingly.
+    Uses fuzzy title matching and syncs content from Blogger to database.
     """
     try:
         from supabase_storage import get_supabase_client
@@ -514,34 +587,42 @@ async def sync_with_blogger():
         db_result = supabase.table("blog_posts").select("*").execute()
         db_posts = db_result.data or []
 
-        # Create a map of Blogger posts by title (normalized)
-        blogger_by_title = {}
-        for bp in blogger_posts:
-            title = bp.get('title', '').strip().lower()
-            blogger_by_title[title] = bp
-
-        # Also create a map by blogger_post_id for posts we already know about
+        # Create a map by blogger_post_id for posts we already know about
         blogger_by_id = {bp.get('id'): bp for bp in blogger_posts}
 
         synced_count = 0
+        content_synced_count = 0
         results = []
 
         for db_post in db_posts:
-            title = db_post.get('title', '').strip().lower()
             existing_blogger_id = db_post.get('blogger_post_id')
+            db_title = db_post.get('title', '')
 
-            # Check if this post exists in Blogger
+            # Find matching Blogger post using multi-tier matching
             blogger_post = None
+            match_type = None
 
-            # First check by blogger_post_id if we have one
+            # Tier 1: Match by blogger_post_id if we have one
             if existing_blogger_id and existing_blogger_id in blogger_by_id:
                 blogger_post = blogger_by_id[existing_blogger_id]
-            # Otherwise try to match by title
-            elif title in blogger_by_title:
-                blogger_post = blogger_by_title[title]
+                match_type = "id_match"
+            else:
+                # Tier 2: Fuzzy title match
+                best_match = None
+                best_score = 0.0
+
+                for bp in blogger_posts:
+                    score = title_similarity(db_title, bp.get('title', ''))
+                    if score > best_score and score >= 0.85:
+                        best_score = score
+                        best_match = bp
+
+                if best_match:
+                    blogger_post = best_match
+                    match_type = f"title_match_{best_score:.2f}"
 
             if blogger_post:
-                # Post exists in Blogger - update database
+                # Post exists in Blogger - prepare update
                 update_data = {
                     "status": "published",
                     "blogger_post_id": blogger_post.get('id'),
@@ -550,24 +631,52 @@ async def sync_with_blogger():
                     "updated_at": datetime.utcnow().isoformat()
                 }
 
-                # Only update if something changed
-                if (db_post.get('status') != 'published' or
-                    db_post.get('blogger_post_id') != blogger_post.get('id') or
-                    db_post.get('blogger_url') != blogger_post.get('url')):
+                # Content and title sync: pull from Blogger
+                content_synced = False
+                title_synced = False
+                blogger_content = blogger_post.get('content', '')
+                blogger_title = blogger_post.get('title', '')
 
+                # Sync title if it differs
+                if blogger_title and blogger_title != db_post.get('title', ''):
+                    update_data['title'] = blogger_title
+                    title_synced = True
+
+                # Sync content if it differs
+                if blogger_content:
+                    db_content = db_post.get('html_content', '')
+                    if blogger_content != db_content:
+                        update_data['html_content'] = blogger_content
+                        content_synced = True
+                        content_synced_count += 1
+
+                # Check if anything needs updating
+                needs_update = (
+                    db_post.get('status') != 'published' or
+                    db_post.get('blogger_post_id') != blogger_post.get('id') or
+                    db_post.get('blogger_url') != blogger_post.get('url') or
+                    content_synced or
+                    title_synced
+                )
+
+                if needs_update:
                     supabase.table("blog_posts").update(update_data).eq("id", db_post['id']).execute()
                     synced_count += 1
                     results.append({
                         "id": db_post['id'],
-                        "title": db_post.get('title'),
+                        "title": blogger_title or db_post.get('title'),
                         "action": "synced",
+                        "match_type": match_type,
+                        "content_synced": content_synced,
+                        "title_synced": title_synced,
                         "old_status": db_post.get('status'),
                         "new_status": "published"
                     })
 
         return {
-            "message": f"Sync completed. {synced_count} posts updated.",
+            "message": f"Sync completed. {synced_count} posts updated, {content_synced_count} with content changes.",
             "synced_count": synced_count,
+            "content_synced_count": content_synced_count,
             "blogger_posts_found": len(blogger_posts),
             "database_posts_checked": len(db_posts),
             "results": results
