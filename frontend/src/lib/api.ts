@@ -114,6 +114,7 @@ export interface NewsletterListResponse {
 }
 
 export interface BlogPostUpdate {
+  title?: string
   html_content?: string
   image_url?: string | null
   category?: 'SHOPPERS' | 'RECALL'

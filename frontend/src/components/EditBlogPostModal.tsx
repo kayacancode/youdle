@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Save, X, AlertCircle, Globe } from 'lucide-react'
+import { Save, X, AlertCircle, Globe, Eye, Code } from 'lucide-react'
 import { Modal } from './Modal'
+import { RichTextEditor } from './RichTextEditor'
 import type { BlogPostUpdate } from '@/lib/api'
 
 interface BlogPost {
@@ -27,29 +28,38 @@ interface EditBlogPostModalProps {
 
 export function EditBlogPostModal({ isOpen, post, onClose, onSave }: EditBlogPostModalProps) {
   const [formData, setFormData] = useState<BlogPostUpdate>({
+    title: post.title,
     html_content: post.html_content,
     image_url: post.image_url || '',
     category: post.category as 'SHOPPERS' | 'RECALL',
   })
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [editorMode, setEditorMode] = useState<'visual' | 'html'>('visual')
 
   // Reset form when modal opens with new post data
   useEffect(() => {
     if (isOpen) {
       setFormData({
+        title: post.title,
         html_content: post.html_content,
         image_url: post.image_url || '',
         category: post.category as 'SHOPPERS' | 'RECALL',
       })
       setError(null)
+      setEditorMode('visual')
     }
   }, [isOpen, post])
 
   const handleSave = async () => {
     // Validate
+    if (!formData.title?.trim()) {
+      setError('Title is required')
+      return
+    }
+
     if (!formData.html_content?.trim()) {
-      setError('HTML content is required')
+      setError('Content is required')
       return
     }
 
@@ -102,7 +112,7 @@ export function EditBlogPostModal({ isOpen, post, onClose, onSave }: EditBlogPos
         </button>
         <button
           onClick={handleSave}
-          disabled={isSaving || !formData.html_content?.trim()}
+          disabled={isSaving || !formData.title?.trim() || !formData.html_content?.trim()}
           className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all bg-youdle-500 text-white hover:bg-youdle-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Save className="w-4 h-4" />
@@ -113,7 +123,7 @@ export function EditBlogPostModal({ isOpen, post, onClose, onSave }: EditBlogPos
   )
 
   return (
-    <Modal isOpen={isOpen} onClose={handleCancel} title={`Edit: ${post.title}`} footer={footerContent}>
+    <Modal isOpen={isOpen} onClose={handleCancel} title="Edit Post" footer={footerContent}>
       <div className="p-6 space-y-4">
         {/* Error Message */}
         {error && (
@@ -122,6 +132,22 @@ export function EditBlogPostModal({ isOpen, post, onClose, onSave }: EditBlogPos
             <span>{error}</span>
           </div>
         )}
+
+        {/* Title Field */}
+        <div>
+          <label htmlFor="title" className="block text-xs font-medium text-stone-700 mb-1">
+            Title
+          </label>
+          <input
+            id="title"
+            type="text"
+            value={formData.title || ''}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            disabled={isSaving}
+            className="w-full px-3 py-2 rounded-lg border border-stone-300 text-sm focus:ring-2 focus:ring-accent-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+            placeholder="Enter post title..."
+          />
+        </div>
 
         {/* Category Field */}
         <div>
@@ -156,20 +182,56 @@ export function EditBlogPostModal({ isOpen, post, onClose, onSave }: EditBlogPos
           />
         </div>
 
-        {/* HTML Content Field */}
+        {/* Content Editor */}
         <div>
-          <label htmlFor="html_content" className="block text-xs font-medium text-stone-700 mb-1">
-            HTML Content
-          </label>
-          <textarea
-            id="html_content"
-            value={formData.html_content}
-            onChange={(e) => setFormData({ ...formData, html_content: e.target.value })}
-            rows={12}
-            disabled={isSaving}
-            className="w-full px-3 py-2 rounded-lg border border-stone-300 text-xs font-mono focus:ring-2 focus:ring-accent-500 focus:border-transparent resize-none disabled:opacity-50 disabled:cursor-not-allowed"
-            placeholder="Enter HTML content..."
-          />
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs font-medium text-stone-700">
+              Content
+            </label>
+            <div className="flex items-center gap-1 bg-stone-100 rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setEditorMode('visual')}
+                className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                  editorMode === 'visual'
+                    ? 'bg-white text-stone-900 shadow-sm'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <Eye className="w-3 h-3" />
+                Visual
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditorMode('html')}
+                className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                  editorMode === 'html'
+                    ? 'bg-white text-stone-900 shadow-sm'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <Code className="w-3 h-3" />
+                HTML
+              </button>
+            </div>
+          </div>
+
+          {editorMode === 'visual' ? (
+            <RichTextEditor
+              content={formData.html_content || ''}
+              onChange={(html) => setFormData({ ...formData, html_content: html })}
+              disabled={isSaving}
+            />
+          ) : (
+            <textarea
+              value={formData.html_content}
+              onChange={(e) => setFormData({ ...formData, html_content: e.target.value })}
+              rows={16}
+              disabled={isSaving}
+              className="w-full px-3 py-2 rounded-lg border border-stone-300 text-xs font-mono focus:ring-2 focus:ring-accent-500 focus:border-transparent resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+              placeholder="Enter HTML content..."
+            />
+          )}
           <p className="mt-1 text-xs text-stone-500">
             {formData.html_content?.length || 0} characters
           </p>
