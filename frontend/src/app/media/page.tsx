@@ -87,7 +87,7 @@ export default function MediaLibraryPage() {
     const confirmed = window.confirm(`Delete ${selectedItems.size} item(s)?`)
     if (!confirmed) return
 
-    for (const id of selectedItems) {
+    for (const id of Array.from(selectedItems)) {
       await deleteMutation.mutateAsync(id)
     }
     setSelectedItems(new Set())
