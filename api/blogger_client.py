@@ -160,6 +160,67 @@ class BloggerClient:
         except HttpError as e:
             raise Exception(f"Blogger API error: {str(e)}")
 
+    def publish_draft(self, blogger_post_id: str) -> Dict[str, Any]:
+        """
+        Publish an existing draft post on Blogger.
+
+        Args:
+            blogger_post_id: The Blogger post ID of the draft
+
+        Returns:
+            Published post info
+        """
+        if not self.is_configured():
+            raise ValueError("Blogger API not configured.")
+
+        service = self._get_service()
+
+        try:
+            response = service.posts().publish(
+                blogId=self.blog_id,
+                postId=blogger_post_id
+            ).execute()
+
+            return {
+                'blogger_post_id': response.get('id'),
+                'blogger_url': response.get('url'),
+                'published_at': response.get('published'),
+                'status': response.get('status', 'LIVE')
+            }
+
+        except HttpError as e:
+            raise Exception(f"Blogger API error: {str(e)}")
+
+    def revert_to_draft(self, blogger_post_id: str) -> Dict[str, Any]:
+        """
+        Revert a published post to draft status on Blogger.
+
+        Args:
+            blogger_post_id: The Blogger post ID
+
+        Returns:
+            Updated post info
+        """
+        if not self.is_configured():
+            raise ValueError("Blogger API not configured.")
+
+        service = self._get_service()
+
+        try:
+            response = service.posts().revert(
+                blogId=self.blog_id,
+                postId=blogger_post_id
+            ).execute()
+
+            return {
+                'blogger_post_id': response.get('id'),
+                'status': response.get('status', 'DRAFT'),
+                'updated_at': response.get('updated')
+            }
+
+        except HttpError as e:
+            raise Exception(f"Blogger API error: {str(e)}")
+
     def delete_post(self, blogger_post_id: str) -> bool:
         """
         Delete a post from Blogger.

@@ -299,6 +299,7 @@ async def delete_blog_post(post_id: str):
 
 class BlogPostUpdate(BaseModel):
     """Blog post update model"""
+    title: Optional[str] = None
     html_content: Optional[str] = None
     image_url: Optional[str] = None
     category: Optional[str] = None
@@ -327,6 +328,8 @@ async def update_blog_post(post_id: str, updates: BlogPostUpdate):
 
         # Build update dict from provided fields only
         update_data = {}
+        if updates.title is not None:
+            update_data["title"] = updates.title
         if updates.html_content is not None:
             update_data["html_content"] = updates.html_content
         if updates.image_url is not None:
@@ -358,6 +361,8 @@ async def update_blog_post(post_id: str, updates: BlogPostUpdate):
                 if blogger.is_configured():
                     # Prepare update for Blogger
                     blogger_update_kwargs = {}
+                    if updates.title is not None:
+                        blogger_update_kwargs["title"] = updates.title
                     if updates.html_content is not None:
                         blogger_update_kwargs["html_content"] = updates.html_content
                     if updates.category is not None:
@@ -440,8 +445,8 @@ async def publish_post_to_blogger(post_id: str):
 
         post = result.data
 
-        # Check if already published to Blogger
-        if post.get("blogger_post_id"):
+        # Check if already published to Blogger (has both ID and URL)
+        if post.get("blogger_post_id") and post.get("blogger_url"):
             raise HTTPException(
                 status_code=400,
                 detail=f"Post already published to Blogger. URL: {post.get('blogger_url')}"
@@ -450,12 +455,24 @@ async def publish_post_to_blogger(post_id: str):
         # Publish to Blogger
         labels = [post.get("category", "SHOPPERS")]
 
-        blogger_result = blogger.publish_post(
-            title=post["title"],
-            html_content=post["html_content"],
-            labels=labels,
-            is_draft=False
-        )
+        # If post has blogger_post_id but no URL, it's a draft - re-publish it
+        if post.get("blogger_post_id"):
+            # First update the draft with current content, then publish
+            blogger.update_post(
+                blogger_post_id=post["blogger_post_id"],
+                title=post["title"],
+                html_content=post["html_content"],
+                labels=labels
+            )
+            blogger_result = blogger.publish_draft(post["blogger_post_id"])
+        else:
+            # Create new post on Blogger
+            blogger_result = blogger.publish_post(
+                title=post["title"],
+                html_content=post["html_content"],
+                labels=labels,
+                is_draft=False
+            )
 
         # Update the database with Blogger info
         update_result = supabase.table("blog_posts").update({
@@ -492,7 +509,8 @@ async def publish_post_to_blogger(post_id: str):
 async def unpublish_post_from_blogger(post_id: str):
     """
     Unpublish a blog post from Blogger.
-    Deletes the post from Blogger (if published there) and resets status to reviewed.
+    Reverts the post to draft status on Blogger and resets local status to reviewed.
+    The post remains on Blogger as a draft so it can be re-published later.
     """
     try:
         from supabase_storage import get_supabase_client
@@ -509,25 +527,26 @@ async def unpublish_post_from_blogger(post_id: str):
 
         post = result.data
 
-        # Delete from Blogger if it has a blogger_post_id and Blogger is configured
+        # Revert to draft on Blogger if it has a blogger_post_id and Blogger is configured
+        blogger_result = None
         if post.get("blogger_post_id") and blogger.is_configured():
             try:
-                blogger.delete_post(post["blogger_post_id"])
+                blogger_result = blogger.revert_to_draft(post["blogger_post_id"])
             except Exception as e:
-                # Log but don't fail - post might already be deleted from Blogger
-                print(f"Warning: Could not delete from Blogger: {e}")
+                # Log but don't fail - post might already be a draft or deleted
+                print(f"Warning: Could not revert to draft on Blogger: {e}")
 
-        # Update the database - clear blogger fields and reset status
+        # Update the database - keep blogger_post_id so we can re-publish, clear URL and published time
         update_result = supabase.table("blog_posts").update({
             "status": "reviewed",
-            "blogger_post_id": None,
             "blogger_url": None,
             "blogger_published_at": None,
             "updated_at": datetime.utcnow().isoformat()
         }).eq("id", post_id).execute()
 
         return {
-            "message": "Post unpublished from Blogger successfully",
+            "message": "Post reverted to draft on Blogger successfully",
+            "blogger_status": blogger_result.get("status") if blogger_result else None,
             "post": update_result.data[0] if update_result.data else None
         }
 
