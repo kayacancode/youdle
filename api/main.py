@@ -47,13 +47,14 @@ app.add_middleware(
 )
 
 # Import routes
-from routes import search, generate, jobs, newsletters
+from routes import search, generate, jobs, newsletters, media
 
 # Include routers
 app.include_router(search.router, prefix="/api/search", tags=["Search"])
 app.include_router(generate.router, prefix="/api/generate", tags=["Generate"])
 app.include_router(jobs.router, prefix="/api/jobs", tags=["Jobs"])
 app.include_router(newsletters.router, prefix="/api/newsletters", tags=["Newsletters"])
+app.include_router(media.router, prefix="/api/media", tags=["Media"])
 
 
 @app.get("/")

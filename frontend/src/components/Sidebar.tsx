@@ -10,7 +10,8 @@ import {
   CheckSquare,
   Settings,
   Activity,
-  Mail
+  Mail,
+  Image as ImageIcon
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +19,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Articles', href: '/articles', icon: Search },
   { name: 'Blog Posts', href: '/posts', icon: FileText },
+  { name: 'Media Library', href: '/media', icon: ImageIcon },
   { name: 'Newsletters', href: '/newsletters', icon: Mail },
   { name: 'Review', href: '/review', icon: CheckSquare },
   { name: 'Jobs', href: '/jobs', icon: Activity },

@@ -5,7 +5,9 @@ import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import Image from '@tiptap/extension-image'
-import { useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { MediaPickerModal } from './MediaPickerModal'
+import type { MediaItem } from '@/lib/api'
 import {
   Bold,
   Italic,
@@ -64,6 +66,8 @@ function ToolbarDivider() {
 }
 
 export function RichTextEditor({ content, onChange, disabled }: RichTextEditorProps) {
+  const [showMediaPicker, setShowMediaPicker] = useState(false)
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -128,13 +132,14 @@ export function RichTextEditor({ content, onChange, disabled }: RichTextEditorPr
   }, [editor])
 
   const addImage = useCallback(() => {
-    if (!editor) return
+    setShowMediaPicker(true)
+  }, [])
 
-    const url = window.prompt('Enter image URL:')
-
-    if (url) {
-      editor.chain().focus().setImage({ src: url }).run()
+  const handleMediaSelect = useCallback((media: MediaItem) => {
+    if (editor) {
+      editor.chain().focus().setImage({ src: media.public_url }).run()
     }
+    setShowMediaPicker(false)
   }, [editor])
 
   if (!editor) {
@@ -284,6 +289,14 @@ export function RichTextEditor({ content, onChange, disabled }: RichTextEditorPr
 
       {/* Editor Content */}
       <EditorContent editor={editor} />
+
+      {/* Media Picker Modal */}
+      <MediaPickerModal
+        isOpen={showMediaPicker}
+        onClose={() => setShowMediaPicker(false)}
+        onSelect={handleMediaSelect}
+        title="Insert Image"
+      />
     </div>
   )
 }

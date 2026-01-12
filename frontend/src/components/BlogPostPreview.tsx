@@ -64,7 +64,7 @@ export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, onPubl
     }
   }
 
-  const isPublishedToBlogger = !!post.blogger_post_id
+  const isPublishedToBlogger = !!post.blogger_url
 
   const handleCopyHtml = async () => {
     await navigator.clipboard.writeText(post.html_content)
@@ -254,28 +254,21 @@ export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, onPubl
                   )}
                 </button>
               )}
-              {onPublish && (
+              {onPublish && !isPublishedToBlogger && (
                 <button
                   onClick={handlePublish}
-                  disabled={isPublishedToBlogger || isPublishing}
+                  disabled={isPublishing}
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                    isPublishedToBlogger
-                      ? 'bg-green-200 text-green-500 cursor-not-allowed'
-                      : isPublishing
-                        ? 'bg-green-100 text-green-700 cursor-wait'
-                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                    isPublishing
+                      ? 'bg-green-100 text-green-700 cursor-wait'
+                      : 'bg-green-100 text-green-700 hover:bg-green-200'
                   )}
                 >
                   {isPublishing ? (
                     <>
                       <Loader2 className="w-3 h-3 animate-spin" />
                       Publishing...
-                    </>
-                  ) : isPublishedToBlogger ? (
-                    <>
-                      <Check className="w-3 h-3" />
-                      Published
                     </>
                   ) : (
                     'Publish to Blogger'

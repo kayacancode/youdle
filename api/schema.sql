@@ -216,9 +216,43 @@ DROP POLICY IF EXISTS "Allow all for settings" ON settings;
 CREATE POLICY "Allow all for settings" ON settings FOR ALL USING (true);
 
 -- ============================================================================
+-- Media Library Table (for uploaded images)
+-- Stores metadata for user-uploaded media files
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS media (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    filename TEXT NOT NULL,
+    original_filename TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    public_url TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    width INTEGER,
+    height INTEGER,
+    alt_text TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for listing media by date
+CREATE INDEX IF NOT EXISTS idx_media_created_at ON media(created_at DESC);
+
+-- RLS for media
+ALTER TABLE media ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all for media" ON media;
+CREATE POLICY "Allow all for media" ON media FOR ALL USING (true);
+
+-- Trigger for media updated_at
+DROP TRIGGER IF EXISTS update_media_updated_at ON media;
+CREATE TRIGGER update_media_updated_at
+    BEFORE UPDATE ON media
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================================
 -- Success message
 -- ============================================================================
 DO $$
 BEGIN
-    RAISE NOTICE 'Schema created successfully! Tables: job_queue, blog_posts, feedback, newsletters, newsletter_posts, settings';
+    RAISE NOTICE 'Schema created successfully! Tables: job_queue, blog_posts, feedback, newsletters, newsletter_posts, settings, media';
 END $$;

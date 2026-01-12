@@ -144,6 +144,25 @@ export interface AudiencesResponse {
   current: string | null
 }
 
+// Media types
+export interface MediaItem {
+  id: string
+  filename: string
+  original_filename: string
+  public_url: string
+  mime_type: string
+  file_size: number
+  width: number | null
+  height: number | null
+  alt_text: string | null
+  created_at: string
+}
+
+export interface MediaListResponse {
+  items: MediaItem[]
+  total: number
+}
+
 // API Client class
 class ApiClient {
   private baseUrl: string
@@ -405,6 +424,41 @@ class ApiClient {
 
   async setMailchimpAudience(audienceId: string): Promise<{ success: boolean; audience_id: string; message: string }> {
     return this.request(`/api/newsletters/audiences/set?audience_id=${audienceId}`, { method: 'POST' })
+  }
+
+  // Media Library
+  async listMedia(params: { limit?: number; offset?: number } = {}): Promise<MediaListResponse> {
+    const queryParams = new URLSearchParams()
+    if (params.limit) queryParams.set('limit', String(params.limit))
+    if (params.offset) queryParams.set('offset', String(params.offset))
+    const query = queryParams.toString()
+    return this.request(`/api/media${query ? `?${query}` : ''}`)
+  }
+
+  async uploadMedia(file: File, altText?: string): Promise<MediaItem> {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (altText) formData.append('alt_text', altText)
+
+    const response = await fetch(`${this.baseUrl}/api/media/upload`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
+      throw new Error(error.detail || `HTTP ${response.status}`)
+    }
+
+    return response.json()
+  }
+
+  async deleteMedia(mediaId: string): Promise<{ message: string; id: string }> {
+    return this.request(`/api/media/${mediaId}`, { method: 'DELETE' })
+  }
+
+  async getMedia(mediaId: string): Promise<MediaItem> {
+    return this.request(`/api/media/${mediaId}`)
   }
 }
 
