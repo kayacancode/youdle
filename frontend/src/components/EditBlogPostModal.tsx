@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Save, X, AlertCircle, Globe, Eye, Code } from 'lucide-react'
+import { Save, X, AlertCircle, Globe, Eye, Code, Image as ImageIcon } from 'lucide-react'
 import { Modal } from './Modal'
 import { RichTextEditor } from './RichTextEditor'
-import type { BlogPostUpdate } from '@/lib/api'
+import { MediaPickerModal } from './MediaPickerModal'
+import type { BlogPostUpdate, MediaItem } from '@/lib/api'
 
 interface BlogPost {
   id: string
@@ -36,6 +37,7 @@ export function EditBlogPostModal({ isOpen, post, onClose, onSave }: EditBlogPos
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [editorMode, setEditorMode] = useState<'visual' | 'html'>('visual')
+  const [showMediaPicker, setShowMediaPicker] = useState(false)
 
   // Reset form when modal opens with new post data
   useEffect(() => {
@@ -85,6 +87,11 @@ export function EditBlogPostModal({ isOpen, post, onClose, onSave }: EditBlogPos
     if (!isSaving) {
       onClose()
     }
+  }
+
+  const handleMediaSelect = (media: MediaItem) => {
+    setFormData({ ...formData, image_url: media.public_url })
+    setShowMediaPicker(false)
   }
 
   const isPublishedToBlogger = !!post.blogger_post_id
@@ -171,15 +178,27 @@ export function EditBlogPostModal({ isOpen, post, onClose, onSave }: EditBlogPos
           <label htmlFor="image_url" className="block text-xs font-medium text-stone-700 mb-1">
             Image URL (optional)
           </label>
-          <input
-            id="image_url"
-            type="url"
-            value={formData.image_url || ''}
-            onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-            placeholder="https://example.com/image.jpg"
-            disabled={isSaving}
-            className="w-full px-3 py-2 rounded-lg border border-stone-300 text-sm focus:ring-2 focus:ring-accent-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-          />
+          <div className="flex gap-2">
+            <input
+              id="image_url"
+              type="url"
+              value={formData.image_url || ''}
+              onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+              placeholder="https://example.com/image.jpg"
+              disabled={isSaving}
+              className="flex-1 px-3 py-2 rounded-lg border border-stone-300 text-sm focus:ring-2 focus:ring-accent-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+            <button
+              type="button"
+              onClick={() => setShowMediaPicker(true)}
+              disabled={isSaving}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-stone-300 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Browse Media Library"
+            >
+              <ImageIcon className="w-4 h-4" />
+              Browse
+            </button>
+          </div>
         </div>
 
         {/* Content Editor */}
@@ -237,6 +256,14 @@ export function EditBlogPostModal({ isOpen, post, onClose, onSave }: EditBlogPos
           </p>
         </div>
       </div>
+
+      {/* Media Picker Modal */}
+      <MediaPickerModal
+        isOpen={showMediaPicker}
+        onClose={() => setShowMediaPicker(false)}
+        onSelect={handleMediaSelect}
+        title="Select Featured Image"
+      />
     </Modal>
   )
 }
