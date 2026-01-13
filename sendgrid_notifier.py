@@ -25,7 +25,7 @@ except ImportError:
 
 DEFAULT_SENDER_EMAIL = "info@getyoudle.com"
 DEFAULT_SENDER_NAME = "Youdle"
-DASHBOARD_URL = "https://youdle.vercel.app"  # Update with actual dashboard URL
+DASHBOARD_URL = "https://youdle-agent-dashboard.vercel.app"
 
 
 # ============================================================================
