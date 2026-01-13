@@ -161,15 +161,15 @@ class SendGridNotifier:
             recipients = [recipients]
 
         try:
+            # Create list of To objects for all recipients
+            to_list = [To(email) for email in recipients]
+
             message = Mail(
                 from_email=Email(self.sender_email, self.sender_name),
+                to_emails=to_list,
                 subject=subject,
                 html_content=Content("text/html", html_content)
             )
-
-            # Add all recipients
-            for email in recipients:
-                message.add_to(To(email))
 
             response = self.client.send(message)
 
