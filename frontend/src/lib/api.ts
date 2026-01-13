@@ -413,6 +413,14 @@ class ApiClient {
     return this.request('/api/newsletters/auto-create', { method: 'POST' })
   }
 
+  async queueArticles(): Promise<Newsletter> {
+    return this.request('/api/newsletters/queue-articles', { method: 'POST' })
+  }
+
+  async publishNowAuto(): Promise<Newsletter> {
+    return this.request('/api/newsletters/publish-now', { method: 'POST' })
+  }
+
   async syncNewsletterStats(id: string): Promise<Newsletter> {
     return this.request(`/api/newsletters/${id}/sync-stats`, { method: 'POST' })
   }
