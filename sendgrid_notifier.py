@@ -13,7 +13,7 @@ except ImportError:
 
 try:
     from sendgrid import SendGridAPIClient
-    from sendgrid.helpers.mail import Mail, Email, To, Content
+    from sendgrid.helpers.mail import Mail, Email, To, Content, Personalization
 except ImportError:
     SendGridAPIClient = None
     print("Warning: sendgrid not installed. Run: pip install sendgrid")
@@ -86,7 +86,7 @@ class SendGridNotifier:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        admin_email: Optional[str] = None,
+        admin_emails: Optional[str] = None,
         sender_email: Optional[str] = None,
         sender_name: Optional[str] = None
     ):
@@ -95,14 +95,20 @@ class SendGridNotifier:
 
         Args:
             api_key: SendGrid API key (defaults to SENDGRID_API_KEY env var)
-            admin_email: Admin email to receive notifications (defaults to ADMIN_NOTIFICATION_EMAIL env var)
+            admin_emails: Admin email(s) to receive notifications, comma-separated for multiple
+                         (defaults to ADMIN_NOTIFICATION_EMAIL env var)
             sender_email: Sender email address (defaults to DEFAULT_SENDER_EMAIL)
             sender_name: Sender display name (defaults to DEFAULT_SENDER_NAME)
         """
         self.api_key = api_key or os.getenv("SENDGRID_API_KEY")
-        self.admin_email = admin_email or os.getenv("ADMIN_NOTIFICATION_EMAIL")
         self.sender_email = sender_email or os.getenv("SENDER_EMAIL", DEFAULT_SENDER_EMAIL)
         self.sender_name = sender_name or DEFAULT_SENDER_NAME
+
+        # Parse admin emails (comma-separated)
+        admin_emails_str = admin_emails or os.getenv("ADMIN_NOTIFICATION_EMAIL", "")
+        self.admin_emails = [
+            email.strip() for email in admin_emails_str.split(",") if email.strip()
+        ]
 
         self.client = None
         if self.api_key and SendGridAPIClient:
@@ -123,20 +129,20 @@ class SendGridNotifier:
         self,
         subject: str,
         html_content: str,
-        to_email: Optional[str] = None
+        to_emails: Optional[list] = None
     ) -> Dict[str, Any]:
         """
-        Send a notification email.
+        Send a notification email to one or more recipients.
 
         Args:
             subject: Email subject line
             html_content: HTML content for the email body
-            to_email: Recipient email (uses admin_email if not provided)
+            to_emails: List of recipient emails (uses admin_emails if not provided)
 
         Returns:
             Result dictionary with success status
         """
-        to_email = to_email or self.admin_email
+        recipients = to_emails or self.admin_emails
 
         if not self.client:
             return {
@@ -144,26 +150,33 @@ class SendGridNotifier:
                 "error": "SendGrid client not initialized. Check SENDGRID_API_KEY."
             }
 
-        if not to_email:
+        if not recipients:
             return {
                 "success": False,
                 "error": "No recipient email provided. Set ADMIN_NOTIFICATION_EMAIL."
             }
 
+        # Ensure recipients is a list
+        if isinstance(recipients, str):
+            recipients = [recipients]
+
         try:
             message = Mail(
                 from_email=Email(self.sender_email, self.sender_name),
-                to_emails=To(to_email),
                 subject=subject,
                 html_content=Content("text/html", html_content)
             )
+
+            # Add all recipients
+            for email in recipients:
+                message.add_to(To(email))
 
             response = self.client.send(message)
 
             return {
                 "success": True,
                 "status_code": response.status_code,
-                "to_email": to_email,
+                "to_emails": recipients,
                 "subject": subject
             }
 
