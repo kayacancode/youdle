@@ -1,5 +1,6 @@
 # GitHub Actions workflow for creating Mailchimp newsletter campaigns
 # This workflow runs after blog posts are published to Blogger
+# Includes a publish status check before creating the newsletter
 
 name: Create Newsletter Campaign
 
@@ -8,7 +9,7 @@ on:
   # Note: During daylight saving time (CDT), this will be 10 AM local time
   schedule:
     - cron: '0 15 * * 4'
-  
+
   # Allow manual trigger
   workflow_dispatch:
     inputs:
@@ -26,21 +27,123 @@ on:
         required: false
         default: false
         type: boolean
+      skip_publish_check:
+        description: 'Skip the publish status check (force create newsletter)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
-  create-campaign:
+  # First job: Check if enough blog posts are published
+  check-publish-status:
     runs-on: ubuntu-latest
-    
+    outputs:
+      can_proceed: ${{ steps.check.outputs.can_proceed }}
+      published_count: ${{ steps.check.outputs.published }}
+      shoppers_published: ${{ steps.check.outputs.shoppers }}
+      recall_published: ${{ steps.check.outputs.recall }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-      
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install sendgrid python-dotenv supabase pytz
+
+      - name: Check publish status
+        id: check
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          ADMIN_NOTIFICATION_EMAIL: ${{ secrets.ADMIN_NOTIFICATION_EMAIL }}
+        run: |
+          # If skip_publish_check is true, always proceed
+          if [ "${{ github.event.inputs.skip_publish_check }}" == "true" ]; then
+            echo "Skipping publish check (manual override)"
+            echo "can_proceed=true" >> $GITHUB_OUTPUT
+            echo "published=0" >> $GITHUB_OUTPUT
+            echo "shoppers=0" >> $GITHUB_OUTPUT
+            echo "recall=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check blog status
+          python check_blog_status.py --json > status.json
+          cat status.json
+
+          # Extract values
+          PUBLISHED=$(python -c "import json; d=json.load(open('status.json')); print(d.get('published_posts', 0))")
+          SHOPPERS=$(python -c "import json; d=json.load(open('status.json')); print(d.get('shoppers_published', 0))")
+          RECALL=$(python -c "import json; d=json.load(open('status.json')); print(d.get('recall_published', 0))")
+          MEETS=$(python -c "import json; d=json.load(open('status.json')); print('true' if d.get('meets_requirement') else 'false')")
+
+          echo "published=$PUBLISHED" >> $GITHUB_OUTPUT
+          echo "shoppers=$SHOPPERS" >> $GITHUB_OUTPUT
+          echo "recall=$RECALL" >> $GITHUB_OUTPUT
+
+          if [ "$MEETS" == "true" ]; then
+            echo "Publishing requirements met! Proceeding with newsletter."
+            echo "can_proceed=true" >> $GITHUB_OUTPUT
+          else
+            echo "Publishing requirements NOT met. Cancelling newsletter."
+            echo "can_proceed=false" >> $GITHUB_OUTPUT
+
+            # Send cancellation notification
+            python -c "
+          from sendgrid_notifier import SendGridNotifier
+          notifier = SendGridNotifier()
+          result = notifier.send_newsletter_cancelled_notification(
+              published_count=${PUBLISHED},
+              required_count=7,
+              shoppers_published=${SHOPPERS},
+              recall_published=${RECALL}
+          )
+          print(f'Cancellation notification result: {result}')
+          "
+          fi
+
+      - name: Summary (check result)
+        run: |
+          echo "## Publish Status Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Published: ${{ steps.check.outputs.published }} / 7 required" >> $GITHUB_STEP_SUMMARY
+          echo "- Shoppers: ${{ steps.check.outputs.shoppers }} / 6 required" >> $GITHUB_STEP_SUMMARY
+          echo "- Recall: ${{ steps.check.outputs.recall }} / 1 required" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check.outputs.can_proceed }}" == "true" ]; then
+            echo "**Result:** Requirements met - proceeding with newsletter creation" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Result:** Requirements NOT met - newsletter cancelled" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "A notification email has been sent with instructions for manual newsletter creation." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Second job: Create the newsletter campaign (only if check passes)
+  create-campaign:
+    needs: check-publish-status
+    if: needs.check-publish-status.outputs.can_proceed == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -48,7 +151,7 @@ jobs:
           pip uninstall -y google google-cloud google-api-core google-generativeai || true
           pip install --no-cache-dir -r requirements.txt
           # Verify google-genai SDK is importable (for image generation)
-          python -c "from google import genai; from google.genai import types; print('✓ google-genai SDK imported successfully')"
+          python -c "from google import genai; from google.genai import types; print('google-genai SDK imported successfully')"
 
       - name: Download latest blog posts
         uses: actions/download-artifact@v4
@@ -57,12 +160,12 @@ jobs:
           path: blog_posts/
           merge-multiple: true
         continue-on-error: true
-      
+
       - name: Preview newsletter
         if: ${{ github.event.inputs.preview_only == 'true' }}
         run: |
           python mailchimp_campaign.py --preview -d blog_posts/
-      
+
       - name: Create Mailchimp campaign
         if: ${{ github.event.inputs.preview_only != 'true' }}
         env:
@@ -74,17 +177,17 @@ jobs:
           if [ "${{ github.event.inputs.send_immediately }}" == "true" ]; then
             SEND_FLAG="--send"
           fi
-          
+
           SUBJECT_FLAG=""
           if [ -n "${{ github.event.inputs.subject }}" ]; then
             SUBJECT_FLAG="-s '${{ github.event.inputs.subject }}'"
           fi
-          
+
           python mailchimp_campaign.py -d blog_posts/ $SEND_FLAG $SUBJECT_FLAG > campaign_result.json
-          
+
           echo "## Campaign Result" >> $GITHUB_STEP_SUMMARY
           cat campaign_result.json >> $GITHUB_STEP_SUMMARY
-      
+
       - name: Upload campaign result
         if: ${{ github.event.inputs.preview_only != 'true' }}
         uses: actions/upload-artifact@v4
@@ -92,6 +195,3 @@ jobs:
           name: campaign-result-${{ github.run_id }}
           path: campaign_result.json
           retention-days: 30
-
-
-

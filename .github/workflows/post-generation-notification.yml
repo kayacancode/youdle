@@ -1,0 +1,122 @@
+# GitHub Actions workflow for sending notification after blog generation
+# Triggers after the Generate Blog Posts workflow completes successfully
+
+name: Post-Generation Notification
+
+on:
+  # Trigger when Generate Blog Posts workflow completes
+  workflow_run:
+    workflows: ["Generate Blog Posts"]
+    types:
+      - completed
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      posts_generated:
+        description: 'Number of posts generated (for testing)'
+        required: false
+        default: '7'
+        type: string
+      shoppers_count:
+        description: 'Number of SHOPPERS posts (for testing)'
+        required: false
+        default: '6'
+        type: string
+      recall_count:
+        description: 'Number of RECALL posts (for testing)'
+        required: false
+        default: '1'
+        type: string
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    # Only run if the triggering workflow succeeded (or manual trigger)
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install sendgrid python-dotenv supabase pytz
+
+      - name: Get generation results (from workflow_run)
+        if: ${{ github.event_name == 'workflow_run' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: blog-posts-${{ github.event.workflow_run.id }}
+          path: artifacts/
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+        continue-on-error: true
+
+      - name: Check blog status and send notification
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          ADMIN_NOTIFICATION_EMAIL: ${{ secrets.ADMIN_NOTIFICATION_EMAIL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          # For manual trigger, use inputs
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            POSTS="${{ github.event.inputs.posts_generated }}"
+            SHOPPERS="${{ github.event.inputs.shoppers_count }}"
+            RECALL="${{ github.event.inputs.recall_count }}"
+          else
+            # Try to get counts from generation_result.json artifact
+            if [ -f artifacts/generation_result.json ]; then
+              POSTS=$(python -c "import json; d=json.load(open('artifacts/generation_result.json')); print(d.get('posts_generated', 7))" 2>/dev/null || echo "7")
+              # Default split: 6 shoppers, 1 recall
+              SHOPPERS="6"
+              RECALL="1"
+            else
+              # Fallback: query Supabase for actual counts
+              echo "No artifact found, querying Supabase for post counts..."
+              python -c "
+          from check_blog_status import check_publish_status
+          status = check_publish_status()
+          print(f\"POSTS={status.get('total_posts', 7)}\")
+          print(f\"SHOPPERS={status.get('shoppers_total', 6)}\")
+          print(f\"RECALL={status.get('recall_total', 1)}\")
+          " > counts.txt 2>/dev/null || echo "POSTS=7
+          SHOPPERS=6
+          RECALL=1" > counts.txt
+              source counts.txt
+            fi
+          fi
+
+          echo "Sending notification: $POSTS posts generated ($SHOPPERS shoppers, $RECALL recall)"
+
+          python -c "
+          from sendgrid_notifier import SendGridNotifier
+          notifier = SendGridNotifier()
+          result = notifier.send_blogs_generated_notification(
+              posts_generated=${POSTS:-7},
+              shoppers_count=${SHOPPERS:-6},
+              recall_count=${RECALL:-1}
+          )
+          print(f'Notification result: {result}')
+          if not result.get('success'):
+              exit(1)
+          "
+
+      - name: Summary
+        run: |
+          echo "## Post-Generation Notification" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Notification email sent to admin about new blog posts." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review blog posts in the dashboard" >> $GITHUB_STEP_SUMMARY
+          echo "2. Publish at least 7 posts (6 SHOPPERS + 1 RECALL)" >> $GITHUB_STEP_SUMMARY
+          echo "3. Newsletter will be sent Thursday 9 AM CST" >> $GITHUB_STEP_SUMMARY
