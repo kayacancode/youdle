@@ -1,0 +1,150 @@
+# GitHub Actions workflow for sending blog review reminder emails
+# Sends reminders at scheduled times before the Thursday newsletter
+
+name: Blog Review Reminders
+
+on:
+  schedule:
+    # Tuesday 8 PM CST = Wednesday 2 AM UTC
+    - cron: '0 2 * * 3'
+    # Wednesday 10 AM CST = Wednesday 4 PM UTC
+    - cron: '0 16 * * 3'
+    # Wednesday 8 PM CST = Thursday 2 AM UTC
+    - cron: '0 2 * * 4'
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      reminder_type:
+        description: 'Type of reminder to send'
+        required: true
+        type: choice
+        options:
+          - tuesday_evening
+          - wednesday_morning
+          - wednesday_evening
+
+jobs:
+  send-reminder:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install sendgrid python-dotenv supabase pytz
+
+      - name: Determine reminder type
+        id: reminder
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "type=${{ github.event.inputs.reminder_type }}" >> $GITHUB_OUTPUT
+          else
+            # Determine type based on cron schedule
+            # Get current UTC hour and day
+            HOUR=$(date -u +%H)
+            DAY=$(date -u +%u)  # 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, etc.
+
+            echo "Current UTC: Day=$DAY Hour=$HOUR"
+
+            # Wednesday 2 AM UTC = Tuesday 8 PM CST
+            if [ "$DAY" == "3" ] && [ "$HOUR" == "02" ]; then
+              echo "type=tuesday_evening" >> $GITHUB_OUTPUT
+            # Wednesday 4 PM UTC = Wednesday 10 AM CST
+            elif [ "$DAY" == "3" ] && [ "$HOUR" == "16" ]; then
+              echo "type=wednesday_morning" >> $GITHUB_OUTPUT
+            # Thursday 2 AM UTC = Wednesday 8 PM CST
+            elif [ "$DAY" == "4" ] && [ "$HOUR" == "02" ]; then
+              echo "type=wednesday_evening" >> $GITHUB_OUTPUT
+            else
+              # Default to tuesday_evening if can't determine
+              echo "type=tuesday_evening" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Check blog status
+        id: status
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          python check_blog_status.py --json > status.json
+          cat status.json
+
+          # Extract values for use in next step
+          PUBLISHED=$(python -c "import json; d=json.load(open('status.json')); print(d.get('published_posts', 0))")
+          SHOPPERS=$(python -c "import json; d=json.load(open('status.json')); print(d.get('shoppers_published', 0))")
+          RECALL=$(python -c "import json; d=json.load(open('status.json')); print(d.get('recall_published', 0))")
+          MEETS=$(python -c "import json; d=json.load(open('status.json')); print('true' if d.get('meets_requirement') else 'false')")
+
+          echo "published=$PUBLISHED" >> $GITHUB_OUTPUT
+          echo "shoppers=$SHOPPERS" >> $GITHUB_OUTPUT
+          echo "recall=$RECALL" >> $GITHUB_OUTPUT
+          echo "meets_requirement=$MEETS" >> $GITHUB_OUTPUT
+
+      - name: Send reminder email
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          ADMIN_NOTIFICATION_EMAIL: ${{ secrets.ADMIN_NOTIFICATION_EMAIL }}
+        run: |
+          REMINDER_TYPE="${{ steps.reminder.outputs.type }}"
+          PUBLISHED="${{ steps.status.outputs.published }}"
+          SHOPPERS="${{ steps.status.outputs.shoppers }}"
+          RECALL="${{ steps.status.outputs.recall }}"
+
+          echo "Sending $REMINDER_TYPE reminder..."
+          echo "Status: $PUBLISHED published ($SHOPPERS shoppers, $RECALL recall)"
+
+          if [ "$REMINDER_TYPE" == "wednesday_evening" ]; then
+            # Final warning notification
+            python -c "
+          from sendgrid_notifier import SendGridNotifier
+          notifier = SendGridNotifier()
+          result = notifier.send_final_warning_notification(
+              published_count=${PUBLISHED},
+              required_count=7,
+              shoppers_published=${SHOPPERS},
+              recall_published=${RECALL}
+          )
+          print(f'Notification result: {result}')
+          if not result.get('success'):
+              exit(1)
+          "
+          else
+            # Regular reminder notification
+            python -c "
+          from sendgrid_notifier import SendGridNotifier
+          notifier = SendGridNotifier()
+          result = notifier.send_reminder_notification(
+              reminder_type='${REMINDER_TYPE}',
+              published_count=${PUBLISHED},
+              required_count=7,
+              shoppers_published=${SHOPPERS},
+              recall_published=${RECALL}
+          )
+          print(f'Notification result: {result}')
+          if not result.get('success'):
+              exit(1)
+          "
+          fi
+
+      - name: Summary
+        run: |
+          echo "## Blog Review Reminder" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Reminder Type:** ${{ steps.reminder.outputs.type }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Current Status:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Published: ${{ steps.status.outputs.published }} / 7 required" >> $GITHUB_STEP_SUMMARY
+          echo "- Shoppers: ${{ steps.status.outputs.shoppers }} / 6 required" >> $GITHUB_STEP_SUMMARY
+          echo "- Recall: ${{ steps.status.outputs.recall }} / 1 required" >> $GITHUB_STEP_SUMMARY
+          echo "- Meets Requirement: ${{ steps.status.outputs.meets_requirement }}" >> $GITHUB_STEP_SUMMARY
