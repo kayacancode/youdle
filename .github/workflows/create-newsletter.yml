@@ -4,9 +4,10 @@
 name: Create Newsletter Campaign
 
 on:
-  # Run weekly on Thursdays at 9 AM UTC (after human review and publishing)
+  # Run weekly on Thursdays at 9 AM CST (Chicago time) = 3 PM UTC
+  # Note: During daylight saving time (CDT), this will be 10 AM local time
   schedule:
-    - cron: '0 9 * * 4'
+    - cron: '0 15 * * 4'
   
   # Allow manual trigger
   workflow_dispatch:
