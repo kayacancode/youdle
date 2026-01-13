@@ -296,17 +296,21 @@ CREATE TABLE learning_insights (
 
 ## GitHub Actions Workflows
 
-### 1. Generate Blog Posts (Daily)
+### 1. Generate Blog Posts (Tuesday 9 AM CST)
 
-Runs at 6 AM UTC. Generates new blog posts and uploads as artifacts.
+Generates new blog posts and saves to Supabase.
 
-### 2. Create Newsletter (Weekly)
+### 2. Create Newsletter (Thursday 9 AM CST)
 
-Runs Fridays at 2 PM UTC. Creates Mailchimp campaign from published posts.
+Creates Mailchimp campaign from published posts. Includes publish status check.
 
 ### 3. Feedback Analysis (Weekly)
 
 Runs Mondays at 9 AM UTC. Analyzes feedback patterns and refines prompts.
+
+### 4. Email Reminder Notifications
+
+Automated email reminders to ensure blog posts are reviewed and published before the newsletter.
 
 ### Required Secrets
 
@@ -320,6 +324,37 @@ Add these to your GitHub repository secrets:
 - `MAILCHIMP_API_KEY`
 - `MAILCHIMP_LIST_ID`
 - `MAILCHIMP_SERVER_PREFIX`
+- `SENDGRID_API_KEY`
+- `ADMIN_NOTIFICATION_EMAIL` (comma-separated for multiple recipients)
+
+## Email Notification Reminder System
+
+### Overview
+Automated email reminders ensure blog posts are reviewed and published before the weekly newsletter is sent.
+
+### Schedule (All times CST)
+
+| Day | Time | Notification |
+|-----|------|--------------|
+| Tuesday | ~9 AM | "Blogs generated" - Sent after blog generation completes |
+| Tuesday | 8 PM | Reminder #1 - Current publish status |
+| Wednesday | 10 AM | Reminder #2 - Current publish status |
+| Wednesday | 8 PM | Final warning - "Newsletter sends tomorrow" |
+| Thursday | 9 AM | Newsletter check & send |
+
+### Publishing Requirements
+Before the newsletter can be sent automatically, you must publish:
+- **6 SHOPPERS articles**
+- **1 RECALL article**
+- **Total: 7 posts minimum**
+
+### Thursday Morning Check
+At 9 AM CST on Thursday, the system checks if requirements are met:
+- **If YES** → Newsletter is created and sent automatically
+- **If NO** → Newsletter is cancelled and you receive an email with instructions to publish remaining posts and create the newsletter manually via the dashboard
+
+### Configuration
+Notifications are sent via SendGrid to the email(s) configured in `ADMIN_NOTIFICATION_EMAIL`. Multiple recipients can be added using comma-separated values (e.g., `email1@example.com,email2@example.com`).
 
 ## Workflow
 
