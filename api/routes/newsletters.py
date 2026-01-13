@@ -802,6 +802,237 @@ async def retry_newsletter(newsletter_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to retry newsletter: {str(e)}")
 
 
+@router.post("/queue-articles", response_model=Newsletter)
+async def queue_articles():
+    """
+    One-click: Create newsletter from ALL published posts not yet in any newsletter,
+    then schedule for Thursday 9 AM CST.
+    """
+    try:
+        from supabase_storage import get_supabase_client
+        from mailchimp_campaign import MailchimpCampaign
+
+        supabase = get_supabase_client()
+
+        if supabase is None:
+            raise HTTPException(status_code=503, detail="Database not configured")
+
+        # Get ALL published posts with blogger_url (no date restriction)
+        all_posts = supabase.table("blog_posts").select(
+            "id"
+        ).eq("status", "published").not_.is_("blogger_url", "null").order(
+            "created_at", desc=True
+        ).limit(50).execute()
+
+        if not all_posts.data:
+            raise HTTPException(status_code=400, detail="No published posts available")
+
+        all_post_ids = [p["id"] for p in all_posts.data]
+
+        # Get posts already in newsletters
+        used_posts = supabase.table("newsletter_posts").select("blog_post_id").execute()
+        used_post_ids = set(p["blog_post_id"] for p in (used_posts.data or []))
+
+        # Filter to unused posts
+        available_post_ids = [pid for pid in all_post_ids if pid not in used_post_ids]
+
+        if not available_post_ids:
+            raise HTTPException(status_code=400, detail="No posts available - all published posts are already in newsletters")
+
+        # Create newsletter with available posts
+        date_str = datetime.now().strftime("%B %d, %Y")
+        title = f"Weekly Newsletter - {date_str}"
+        subject = f"Youdle Weekly: Your Grocery Insights for {date_str}"
+
+        html_content = generate_newsletter_html(supabase, available_post_ids)
+
+        newsletter_id = str(uuid4())
+        now = datetime.utcnow().isoformat()
+
+        supabase.table("newsletters").insert({
+            "id": newsletter_id,
+            "title": title,
+            "subject": subject,
+            "html_content": html_content,
+            "status": "draft",
+            "created_at": now,
+            "updated_at": now
+        }).execute()
+
+        # Link posts
+        for i, post_id in enumerate(available_post_ids):
+            supabase.table("newsletter_posts").insert({
+                "id": str(uuid4()),
+                "newsletter_id": newsletter_id,
+                "blog_post_id": post_id,
+                "position": i
+            }).execute()
+
+        # Now schedule the newsletter for Thursday 9 AM CST
+        mailchimp = MailchimpCampaign()
+
+        campaign_result = mailchimp.create_campaign(
+            subject=subject,
+            html_content=html_content
+        )
+
+        if not campaign_result.get("success"):
+            # Mark as failed but keep the newsletter
+            supabase.table("newsletters").update({
+                "status": "failed",
+                "error": campaign_result.get("error", "Failed to create campaign"),
+                "updated_at": datetime.utcnow().isoformat()
+            }).eq("id", newsletter_id).execute()
+            raise HTTPException(status_code=500, detail=campaign_result.get("error", "Failed to create Mailchimp campaign"))
+
+        campaign_id = campaign_result["campaign_id"]
+
+        # Schedule for Thursday 9 AM CST
+        schedule_time = get_next_thursday_9am_cst()
+
+        schedule_result = mailchimp.schedule_campaign(campaign_id, schedule_time)
+
+        if not schedule_result.get("success"):
+            supabase.table("newsletters").update({
+                "status": "failed",
+                "mailchimp_campaign_id": campaign_id,
+                "error": schedule_result.get("error", "Failed to schedule campaign"),
+                "updated_at": datetime.utcnow().isoformat()
+            }).eq("id", newsletter_id).execute()
+            raise HTTPException(status_code=500, detail=schedule_result.get("error", "Failed to schedule campaign"))
+
+        # Update newsletter status to scheduled
+        supabase.table("newsletters").update({
+            "status": "scheduled",
+            "mailchimp_campaign_id": campaign_id,
+            "mailchimp_web_id": campaign_result.get("web_id"),
+            "scheduled_for": schedule_time.isoformat(),
+            "error": None,
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", newsletter_id).execute()
+
+        return get_newsletter_with_posts(supabase, newsletter_id)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to queue articles: {str(e)}")
+
+
+@router.post("/publish-now", response_model=Newsletter)
+async def publish_now_auto():
+    """
+    One-click: Create newsletter from ALL published posts not yet in any newsletter,
+    then send immediately via Mailchimp.
+    """
+    try:
+        from supabase_storage import get_supabase_client
+        from mailchimp_campaign import MailchimpCampaign
+
+        supabase = get_supabase_client()
+
+        if supabase is None:
+            raise HTTPException(status_code=503, detail="Database not configured")
+
+        # Get ALL published posts with blogger_url (no date restriction)
+        all_posts = supabase.table("blog_posts").select(
+            "id"
+        ).eq("status", "published").not_.is_("blogger_url", "null").order(
+            "created_at", desc=True
+        ).limit(50).execute()
+
+        if not all_posts.data:
+            raise HTTPException(status_code=400, detail="No published posts available")
+
+        all_post_ids = [p["id"] for p in all_posts.data]
+
+        # Get posts already in newsletters
+        used_posts = supabase.table("newsletter_posts").select("blog_post_id").execute()
+        used_post_ids = set(p["blog_post_id"] for p in (used_posts.data or []))
+
+        # Filter to unused posts
+        available_post_ids = [pid for pid in all_post_ids if pid not in used_post_ids]
+
+        if not available_post_ids:
+            raise HTTPException(status_code=400, detail="No posts available - all published posts are already in newsletters")
+
+        # Create newsletter with available posts
+        date_str = datetime.now().strftime("%B %d, %Y")
+        title = f"Weekly Newsletter - {date_str}"
+        subject = f"Youdle Weekly: Your Grocery Insights for {date_str}"
+
+        html_content = generate_newsletter_html(supabase, available_post_ids)
+
+        newsletter_id = str(uuid4())
+        now = datetime.utcnow().isoformat()
+
+        supabase.table("newsletters").insert({
+            "id": newsletter_id,
+            "title": title,
+            "subject": subject,
+            "html_content": html_content,
+            "status": "draft",
+            "created_at": now,
+            "updated_at": now
+        }).execute()
+
+        # Link posts
+        for i, post_id in enumerate(available_post_ids):
+            supabase.table("newsletter_posts").insert({
+                "id": str(uuid4()),
+                "newsletter_id": newsletter_id,
+                "blog_post_id": post_id,
+                "position": i
+            }).execute()
+
+        # Now send immediately via Mailchimp
+        mailchimp = MailchimpCampaign()
+
+        campaign_result = mailchimp.create_campaign(
+            subject=subject,
+            html_content=html_content
+        )
+
+        if not campaign_result.get("success"):
+            supabase.table("newsletters").update({
+                "status": "failed",
+                "error": campaign_result.get("error", "Failed to create campaign"),
+                "updated_at": datetime.utcnow().isoformat()
+            }).eq("id", newsletter_id).execute()
+            raise HTTPException(status_code=500, detail=campaign_result.get("error", "Failed to create Mailchimp campaign"))
+
+        campaign_id = campaign_result["campaign_id"]
+
+        # Send immediately
+        send_result = mailchimp.send_campaign(campaign_id)
+
+        if not send_result.get("success"):
+            supabase.table("newsletters").update({
+                "status": "failed",
+                "mailchimp_campaign_id": campaign_id,
+                "error": send_result.get("error", "Failed to send campaign"),
+                "updated_at": datetime.utcnow().isoformat()
+            }).eq("id", newsletter_id).execute()
+            raise HTTPException(status_code=500, detail=send_result.get("error", "Failed to send campaign"))
+
+        # Update newsletter status to sent
+        supabase.table("newsletters").update({
+            "status": "sent",
+            "mailchimp_campaign_id": campaign_id,
+            "mailchimp_web_id": campaign_result.get("web_id"),
+            "sent_at": datetime.utcnow().isoformat(),
+            "error": None,
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", newsletter_id).execute()
+
+        return get_newsletter_with_posts(supabase, newsletter_id)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to publish now: {str(e)}")
+
+
 @router.post("/auto-create", response_model=Newsletter)
 async def auto_create_newsletter():
     """

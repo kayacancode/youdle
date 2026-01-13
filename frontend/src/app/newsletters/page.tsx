@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Mail,
@@ -94,11 +94,6 @@ export default function NewslettersPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['newsletters'] }),
   })
 
-  const autoCreateMutation = useMutation({
-    mutationFn: () => api.autoCreateNewsletter(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['newsletters'] }),
-  })
-
   const newsletters = newslettersData?.newsletters || []
 
   // Get counts for filter badges
@@ -127,14 +122,6 @@ export default function NewslettersPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => autoCreateMutation.mutate()}
-            disabled={autoCreateMutation.isPending}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm bg-stone-100 text-stone-700 hover:bg-stone-200 transition-all disabled:opacity-50"
-          >
-            <RefreshCw className={cn("w-4 h-4", autoCreateMutation.isPending && "animate-spin")} />
-            Auto-Create
-          </button>
           <button
             onClick={() => setIsCreateModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm bg-youdle-600 text-white hover:bg-youdle-700 transition-all"

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { Check, Loader2 } from 'lucide-react'
+import { Check, Loader2, Calendar } from 'lucide-react'
 import { Modal } from './Modal'
 import { api, NewsletterCreate, BlogPostSummary } from '@/lib/api'
 import { cn, getCategoryColor } from '@/lib/utils'
@@ -31,6 +31,17 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
     onSuccess: () => {
       onSuccess()
       // Reset form
+      setTitle('')
+      setSubject('')
+      setSelectedPostIds([])
+    },
+  })
+
+  // Queue articles mutation (auto-create + schedule)
+  const queueArticlesMutation = useMutation({
+    mutationFn: () => api.queueArticles(),
+    onSuccess: () => {
+      onSuccess()
       setTitle('')
       setSubject('')
       setSelectedPostIds([])
@@ -190,35 +201,56 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
         </div>
 
         {/* Error message */}
-        {createMutation.isError && (
+        {(createMutation.isError || queueArticlesMutation.isError) && (
           <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
-            {(createMutation.error as Error)?.message || 'Failed to create newsletter'}
+            {(createMutation.error as Error)?.message ||
+             (queueArticlesMutation.error as Error)?.message ||
+             'Failed to create newsletter'}
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-stone-200">
+        <div className="flex items-center justify-between pt-4 border-t border-stone-200">
           <button
             type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-stone-700 hover:bg-stone-100 transition-all"
+            onClick={() => {
+              if (window.confirm('Queue all available articles and schedule for Thursday 9 AM CST?')) {
+                queueArticlesMutation.mutate()
+              }
+            }}
+            disabled={queueArticlesMutation.isPending || createMutation.isPending}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-all disabled:opacity-50"
           >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={selectedPostIds.length === 0 || createMutation.isPending}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
-              selectedPostIds.length === 0
-                ? 'bg-stone-200 text-stone-500 cursor-not-allowed'
-                : 'bg-youdle-600 text-white hover:bg-youdle-700'
+            {queueArticlesMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Calendar className="w-4 h-4" />
             )}
-          >
-            {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-            Create Newsletter
+            Queue Articles
           </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg text-sm font-medium text-stone-700 hover:bg-stone-100 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={selectedPostIds.length === 0 || createMutation.isPending || queueArticlesMutation.isPending}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+                selectedPostIds.length === 0
+                  ? 'bg-stone-200 text-stone-500 cursor-not-allowed'
+                  : 'bg-youdle-600 text-white hover:bg-youdle-700'
+              )}
+            >
+              {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              Create Newsletter
+            </button>
+          </div>
         </div>
       </div>
     </Modal>
