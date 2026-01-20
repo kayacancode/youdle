@@ -47,6 +47,10 @@ class BlogPost(BaseModel):
     status: str
     article_url: str
     created_at: str
+    blogger_post_id: Optional[str] = None
+    blogger_url: Optional[str] = None
+    blogger_published_at: Optional[str] = None
+    last_synced_at: Optional[str] = None
 
 
 def run_generation_task(job_id: str, config: dict):
@@ -583,8 +587,10 @@ def title_similarity(title1: str, title2: str) -> float:
 @router.post("/blogger/sync")
 async def sync_with_blogger():
     """
-    Sync database posts with Blogger.
-    Uses fuzzy title matching and syncs content from Blogger to database.
+    Enhanced sync with comprehensive three-phase detection and auto-fix:
+    Phase 1: Discovery - Fetch all LIVE and DRAFT posts from Blogger
+    Phase 2: Verification - Detect status mismatches
+    Phase 3: Auto-Fix - Fix detected issues
     """
     try:
         from supabase_storage import get_supabase_client
@@ -599,38 +605,74 @@ async def sync_with_blogger():
                 detail="Blogger API not configured"
             )
 
-        # Get all posts from Blogger
-        blogger_posts = blogger.list_posts()
+        # === PHASE 1: DISCOVERY ===
+        # Fetch all posts from Blogger (both LIVE and DRAFT)
+        live_posts = blogger.list_posts(status='LIVE')
+        draft_posts = blogger.list_posts(status='DRAFT')
+
+        # Combine and create lookup maps
+        all_blogger_posts = live_posts + draft_posts
+        blogger_by_id = {bp.get('id'): bp for bp in all_blogger_posts}
+        live_post_ids = {bp.get('id') for bp in live_posts}
+        draft_post_ids = {bp.get('id') for bp in draft_posts}
 
         # Get all posts from database
         db_result = supabase.table("blog_posts").select("*").execute()
         db_posts = db_result.data or []
 
-        # Create a map by blogger_post_id for posts we already know about
-        blogger_by_id = {bp.get('id'): bp for bp in blogger_posts}
-
         synced_count = 0
-        content_synced_count = 0
-        results = []
+        issues_found = 0
+        issues_fixed = 0
+        details = []
 
+        # === PHASE 2 & 3: VERIFICATION AND AUTO-FIX ===
         for db_post in db_posts:
-            existing_blogger_id = db_post.get('blogger_post_id')
+            db_id = db_post['id']
             db_title = db_post.get('title', '')
+            db_status = db_post.get('status')
+            existing_blogger_id = db_post.get('blogger_post_id')
+            existing_blogger_url = db_post.get('blogger_url')
 
             # Find matching Blogger post using multi-tier matching
             blogger_post = None
             match_type = None
 
             # Tier 1: Match by blogger_post_id if we have one
-            if existing_blogger_id and existing_blogger_id in blogger_by_id:
-                blogger_post = blogger_by_id[existing_blogger_id]
-                match_type = "id_match"
-            else:
-                # Tier 2: Fuzzy title match
+            if existing_blogger_id:
+                if existing_blogger_id in blogger_by_id:
+                    blogger_post = blogger_by_id[existing_blogger_id]
+                    match_type = "id_match"
+                else:
+                    # Blogger post ID exists locally but not found on Blogger (deleted)
+                    issues_found += 1
+                    if db_status == 'published':
+                        # Revert to reviewed, clear all blogger fields
+                        update_data = {
+                            "status": "reviewed",
+                            "blogger_post_id": None,
+                            "blogger_url": None,
+                            "blogger_published_at": None,
+                            "updated_at": datetime.utcnow().isoformat(),
+                            "last_synced_at": datetime.utcnow().isoformat()
+                        }
+                        supabase.table("blog_posts").update(update_data).eq("id", db_id).execute()
+                        issues_fixed += 1
+                        details.append({
+                            "post_id": db_id,
+                            "title": db_title,
+                            "issue_type": "deleted_on_blogger",
+                            "local_status": db_status,
+                            "blogger_status": "DELETED",
+                            "action_taken": "reverted_to_reviewed_cleared_fields"
+                        })
+                    continue
+
+            # Tier 2: Fuzzy title match (if no ID match found)
+            if not blogger_post:
                 best_match = None
                 best_score = 0.0
 
-                for bp in blogger_posts:
+                for bp in all_blogger_posts:
                     score = title_similarity(db_title, bp.get('title', ''))
                     if score > best_score and score >= 0.85:
                         best_score = score
@@ -640,65 +682,131 @@ async def sync_with_blogger():
                     blogger_post = best_match
                     match_type = f"title_match_{best_score:.2f}"
 
-            if blogger_post:
-                # Post exists in Blogger - prepare update
+            # Handle posts marked published but never actually published to Blogger
+            if not blogger_post and db_status == 'published' and not existing_blogger_url:
+                issues_found += 1
+                issues_fixed += 1
                 update_data = {
-                    "status": "published",
-                    "blogger_post_id": blogger_post.get('id'),
-                    "blogger_url": blogger_post.get('url'),
-                    "blogger_published_at": blogger_post.get('published'),
-                    "updated_at": datetime.utcnow().isoformat()
+                    "status": "reviewed",
+                    "blogger_post_id": None,
+                    "blogger_url": None,
+                    "blogger_published_at": None,
+                    "updated_at": datetime.utcnow().isoformat(),
+                    "last_synced_at": datetime.utcnow().isoformat()
+                }
+                supabase.table("blog_posts").update(update_data).eq("id", db_id).execute()
+                synced_count += 1
+                details.append({
+                    "post_id": db_id,
+                    "title": db_title,
+                    "issue_type": "published_but_not_on_blogger",
+                    "local_status": db_status,
+                    "blogger_status": "NOT_FOUND",
+                    "action_taken": "reverted_to_reviewed"
+                })
+                continue
+
+            # Process matched posts
+            if blogger_post:
+                blogger_id = blogger_post.get('id')
+                blogger_url = blogger_post.get('url')
+                blogger_status = 'LIVE' if blogger_id in live_post_ids else 'DRAFT'
+                blogger_title = blogger_post.get('title', '')
+                blogger_content = blogger_post.get('content', '')
+
+                update_data = {
+                    "blogger_post_id": blogger_id,
+                    "updated_at": datetime.utcnow().isoformat(),
+                    "last_synced_at": datetime.utcnow().isoformat()
                 }
 
-                # Content and title sync: pull from Blogger
+                issue_detected = False
+                issue_type = None
+                action_taken = None
+
+                # Case 1: Local published + Blogger DRAFT
+                if db_status == 'published' and blogger_status == 'DRAFT':
+                    issue_detected = True
+                    issue_type = "status_mismatch_local_published_blogger_draft"
+                    # Clear URL but keep ID (post exists but not live)
+                    update_data["blogger_url"] = None
+                    update_data["blogger_published_at"] = None
+                    action_taken = "cleared_blogger_url"
+
+                # Case 2: Local published + No blogger_url (incomplete publish)
+                elif db_status == 'published' and not existing_blogger_url and blogger_status == 'LIVE':
+                    issue_detected = True
+                    issue_type = "missing_blogger_url"
+                    # Update with correct URL
+                    update_data["blogger_url"] = blogger_url
+                    update_data["blogger_published_at"] = blogger_post.get('published')
+                    update_data["status"] = "published"
+                    action_taken = "added_missing_url"
+
+                # Case 3: Local draft/reviewed + Blogger LIVE
+                elif db_status in ['draft', 'reviewed'] and blogger_status == 'LIVE':
+                    issue_detected = True
+                    issue_type = "status_mismatch_local_draft_blogger_live"
+                    # Update to published
+                    update_data["status"] = "published"
+                    update_data["blogger_url"] = blogger_url
+                    update_data["blogger_published_at"] = blogger_post.get('published')
+                    action_taken = "updated_to_published"
+
+                # Case 4: Normal sync for published posts
+                elif blogger_status == 'LIVE':
+                    update_data["status"] = "published"
+                    update_data["blogger_url"] = blogger_url
+                    update_data["blogger_published_at"] = blogger_post.get('published')
+
+                # Sync content and title from Blogger
                 content_synced = False
                 title_synced = False
-                blogger_content = blogger_post.get('content', '')
-                blogger_title = blogger_post.get('title', '')
 
-                # Sync title if it differs
                 if blogger_title and blogger_title != db_post.get('title', ''):
                     update_data['title'] = blogger_title
                     title_synced = True
 
-                # Sync content if it differs
                 if blogger_content:
                     db_content = db_post.get('html_content', '')
                     if blogger_content != db_content:
                         update_data['html_content'] = blogger_content
                         content_synced = True
-                        content_synced_count += 1
 
-                # Check if anything needs updating
+                # Check if update is needed
                 needs_update = (
-                    db_post.get('status') != 'published' or
-                    db_post.get('blogger_post_id') != blogger_post.get('id') or
-                    db_post.get('blogger_url') != blogger_post.get('url') or
+                    db_post.get('status') != update_data.get('status', db_status) or
+                    db_post.get('blogger_post_id') != blogger_id or
+                    db_post.get('blogger_url') != update_data.get('blogger_url', existing_blogger_url) or
                     content_synced or
                     title_synced
                 )
 
                 if needs_update:
-                    supabase.table("blog_posts").update(update_data).eq("id", db_post['id']).execute()
+                    supabase.table("blog_posts").update(update_data).eq("id", db_id).execute()
                     synced_count += 1
-                    results.append({
-                        "id": db_post['id'],
-                        "title": blogger_title or db_post.get('title'),
-                        "action": "synced",
-                        "match_type": match_type,
-                        "content_synced": content_synced,
-                        "title_synced": title_synced,
-                        "old_status": db_post.get('status'),
-                        "new_status": "published"
-                    })
+
+                    if issue_detected:
+                        issues_found += 1
+                        issues_fixed += 1
+                        details.append({
+                            "post_id": db_id,
+                            "title": blogger_title or db_title,
+                            "issue_type": issue_type,
+                            "local_status": db_status,
+                            "blogger_status": blogger_status,
+                            "action_taken": action_taken
+                        })
 
         return {
-            "message": f"Sync completed. {synced_count} posts updated, {content_synced_count} with content changes.",
+            "message": f"Sync completed. {synced_count} posts synced, {issues_fixed} issues fixed.",
             "synced_count": synced_count,
-            "content_synced_count": content_synced_count,
-            "blogger_posts_found": len(blogger_posts),
+            "issues_found": issues_found,
+            "issues_fixed": issues_fixed,
+            "blogger_live_posts": len(live_posts),
+            "blogger_draft_posts": len(draft_posts),
             "database_posts_checked": len(db_posts),
-            "results": results
+            "details": details
         }
 
     except HTTPException:

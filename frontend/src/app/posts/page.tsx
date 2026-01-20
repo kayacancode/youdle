@@ -11,6 +11,9 @@ export default function PostsPage() {
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
+  const [showSyncIssuesOnly, setShowSyncIssuesOnly] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
 
   const { data: posts, isLoading, error } = useQuery({
     queryKey: ['posts', statusFilter, categoryFilter],
@@ -68,22 +71,28 @@ export default function PostsPage() {
     },
   })
 
-  const [hasAutoSynced, setHasAutoSynced] = useState(false)
-
   const syncWithBloggerMutation = useMutation({
     mutationFn: () => api.syncWithBlogger(),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['posts'] })
-    },
-  })
+      setLastSyncTime(new Date())
 
-  // Auto-sync with Blogger on page load
-  useEffect(() => {
-    if (!hasAutoSynced) {
-      setHasAutoSynced(true)
-      syncWithBloggerMutation.mutate()
+      // Show success toast with summary
+      const summary = data.issues_fixed > 0
+        ? `Synced ${data.synced_count} posts, fixed ${data.issues_fixed} issues`
+        : `Synced ${data.synced_count} posts`
+
+      setToast({ message: summary, type: 'success' })
+      setTimeout(() => setToast(null), 5000)
+    },
+    onError: (error) => {
+      setToast({
+        message: error instanceof Error ? error.message : 'Failed to sync with Blogger',
+        type: 'error'
+      })
+      setTimeout(() => setToast(null), 5000)
     }
-  }, [hasAutoSynced])
+  })
 
   const handleStatusChange = (postId: string, status: string) => {
     updateStatusMutation.mutate({ postId, status })
@@ -119,8 +128,30 @@ export default function PostsPage() {
     return acc
   }, {} as Record<string, number>) || {}
 
+  // Filter posts with sync issues (published but no blogger_url)
+  const filteredPosts = posts?.filter(post => {
+    if (showSyncIssuesOnly) {
+      return post.status === 'published' && !post.blogger_url
+    }
+    return true
+  })
+
+  const syncIssueCount = posts?.filter(p => p.status === 'published' && !p.blogger_url).length || 0
+
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={cn(
+          'fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg border animate-fade-in',
+          toast.type === 'success'
+            ? 'bg-green-50 border-green-200 text-green-800'
+            : 'bg-red-50 border-red-200 text-red-800'
+        )}>
+          <p className="font-medium">{toast.message}</p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -130,6 +161,11 @@ export default function PostsPage() {
           <p className="mt-2 text-lg text-stone-500 font-light">
             View and manage generated blog posts. Update status and copy HTML for publishing.
           </p>
+          {lastSyncTime && (
+            <p className="mt-1 text-sm text-stone-400">
+              Last synced: {lastSyncTime.toLocaleTimeString()}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -142,7 +178,7 @@ export default function PostsPage() {
             ) : (
               <Globe className="w-4 h-4" />
             )}
-            Sync with Blogger
+            {syncWithBloggerMutation.isPending ? 'Syncing...' : 'Sync with Blogger'}
           </button>
           {posts && posts.length > 0 && (
             <button
@@ -244,6 +280,27 @@ export default function PostsPage() {
               </button>
             </div>
           </div>
+
+          {/* Sync Issues Filter */}
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-2">
+              Sync Status
+            </label>
+            <button
+              onClick={() => setShowSyncIssuesOnly(!showSyncIssuesOnly)}
+              className={cn(
+                'px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1',
+                showSyncIssuesOnly
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+              )}
+            >
+              Sync Issues Only
+              {syncIssueCount > 0 && (
+                <span className="text-xs opacity-75">({syncIssueCount})</span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -264,22 +321,24 @@ export default function PostsPage() {
       )}
 
       {/* Empty State */}
-      {!isLoading && posts?.length === 0 && (
+      {!isLoading && filteredPosts?.length === 0 && (
         <div className="text-center py-16 rounded-2xl bg-stone-50/50 border border-stone-200">
           <FileText className="w-12 h-12 text-stone-400 mx-auto mb-4" />
           <h3 className="text-xl font-display font-semibold text-stone-900 mb-2">
             No Posts Found
           </h3>
           <p className="text-stone-500 max-w-md mx-auto">
-            No blog posts match your current filters. Try adjusting the filters or generate new posts.
+            {showSyncIssuesOnly
+              ? 'No posts with sync issues found.'
+              : 'No blog posts match your current filters. Try adjusting the filters or generate new posts.'}
           </p>
         </div>
       )}
 
       {/* Posts Grid */}
-      {posts && posts.length > 0 && (
+      {filteredPosts && filteredPosts.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 stagger-children">
-          {posts.map((post) => (
+          {filteredPosts.map((post) => (
             <BlogPostPreview
               key={post.id}
               post={post}
