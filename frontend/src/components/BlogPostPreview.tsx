@@ -30,6 +30,34 @@ interface BlogPostPreviewProps {
   className?: string
 }
 
+// Helper function to determine sync status
+function getSyncStatus(post: BlogPost): { status: 'synced' | 'issue' | 'not_published', label: string, color: string } {
+  const hasPublishedStatus = post.status === 'published'
+  const hasBloggerUrl = !!post.blogger_url
+
+  if (hasPublishedStatus && !hasBloggerUrl) {
+    return {
+      status: 'issue',
+      label: 'Sync Issue',
+      color: 'bg-amber-100 text-amber-700 border-amber-200'
+    }
+  }
+
+  if (hasBloggerUrl) {
+    return {
+      status: 'synced',
+      label: 'Synced',
+      color: 'bg-emerald-100 text-emerald-700 border-emerald-200'
+    }
+  }
+
+  return {
+    status: 'not_published',
+    label: 'Not Published',
+    color: 'bg-stone-100 text-stone-600 border-stone-200'
+  }
+}
+
 export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, onPublish, onUnpublish, className }: BlogPostPreviewProps) {
   const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview')
   const [copied, setCopied] = useState(false)
@@ -37,6 +65,8 @@ export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, onPubl
   const [isPublishing, setIsPublishing] = useState(false)
   const [isUnpublishing, setIsUnpublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
+
+  const syncStatus = getSyncStatus(post)
 
   const handlePublish = async () => {
     if (!onPublish) return
@@ -92,6 +122,12 @@ export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, onPubl
               getStatusColor(post.status)
             )}>
               {post.status}
+            </span>
+            <span className={cn(
+              'inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border',
+              syncStatus.color
+            )}>
+              {syncStatus.label}
             </span>
           </div>
 

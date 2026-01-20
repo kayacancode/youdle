@@ -3,7 +3,7 @@ Blogger API Client
 Handles publishing posts to Google Blogger.
 """
 import os
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -271,11 +271,41 @@ class BloggerClient:
         except HttpError as e:
             raise Exception(f"Blogger API error: {str(e)}")
 
-    def list_posts(self, max_results: int = 500) -> list:
+    def get_post_by_id(self, blogger_post_id: str) -> Optional[Dict[str, Any]]:
         """
-        List all posts from Blogger.
+        Get a specific post by ID from Blogger with graceful 404 handling.
 
         Args:
+            blogger_post_id: The Blogger post ID
+
+        Returns:
+            Post data from Blogger, or None if post is deleted (404)
+        """
+        if not self.is_configured():
+            raise ValueError("Blogger API not configured.")
+
+        service = self._get_service()
+
+        try:
+            response = service.posts().get(
+                blogId=self.blog_id,
+                postId=blogger_post_id
+            ).execute()
+            return response
+
+        except HttpError as e:
+            # Return None if post is not found (deleted)
+            if e.resp.status == 404:
+                return None
+            # Re-raise other errors
+            raise Exception(f"Blogger API error: {str(e)}")
+
+    def list_posts(self, status: Optional[str] = 'LIVE', max_results: int = 500) -> List[Dict[str, Any]]:
+        """
+        List posts from Blogger with optional status filter.
+
+        Args:
+            status: Post status filter - 'LIVE', 'DRAFT', or None for all posts
             max_results: Maximum number of posts to fetch
 
         Returns:
@@ -290,12 +320,18 @@ class BloggerClient:
 
         try:
             while True:
-                request = service.posts().list(
-                    blogId=self.blog_id,
-                    maxResults=min(max_results - len(all_posts), 100),
-                    pageToken=page_token,
-                    status='LIVE'
-                )
+                # Build request parameters
+                params = {
+                    'blogId': self.blog_id,
+                    'maxResults': min(max_results - len(all_posts), 100),
+                    'pageToken': page_token
+                }
+
+                # Only add status filter if specified
+                if status is not None:
+                    params['status'] = status
+
+                request = service.posts().list(**params)
                 response = request.execute()
 
                 posts = response.get('items', [])
