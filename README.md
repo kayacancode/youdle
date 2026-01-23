@@ -312,6 +312,42 @@ Runs Mondays at 9 AM UTC. Analyzes feedback patterns and refines prompts.
 
 Automated email reminders to ensure blog posts are reviewed and published before the newsletter.
 
+## Newsletter Automation Cycle
+
+The newsletter runs on a **Tuesday → Thursday weekly cycle**:
+
+| Day | Time (CST) | What Happens |
+|-----|------------|--------------|
+| **Tuesday** | 9:00 AM | 🤖 Blog posts auto-generated and saved to dashboard |
+| **Tues - Wed** | — | 👀 Review posts and **publish to Blogger** |
+| **Thursday** | 9:00 AM | 📧 Newsletter auto-sends with that week's published posts |
+
+### Which Posts Get Included?
+
+The newsletter **only includes posts created within that week's window**:
+
+- **Start:** Tuesday 9:00 AM CST (when blog generation runs)
+- **End:** Thursday 9:00 AM CST (when newsletter sends)
+
+This is approximately a **48-hour window**. Posts from previous weeks are NOT included.
+
+### Requirements for a Post to Appear in the Newsletter
+
+1. Created within the Tuesday → Thursday window
+2. Status = `published`
+3. Published to **Blogger** (must have a `blogger_url`)
+
+Posts in "draft" or "reviewed" status will NOT be included.
+
+### Minimum Requirements to Send
+
+The newsletter will only send automatically if these minimums are met:
+
+- **6 SHOPPERS articles** published to Blogger
+- **1 RECALL article** published to Blogger
+
+If requirements aren't met by Thursday 9 AM, the newsletter is cancelled and an email notification is sent.
+
 ### Required Secrets
 
 Add these to your GitHub repository secrets:
