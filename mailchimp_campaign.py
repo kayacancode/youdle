@@ -574,6 +574,7 @@ def load_published_posts(
                 
                 if blogger_url:
                     posts.append({
+                        "id": metadata.get("id"),  # Preserve post ID for Supabase linking
                         "title": metadata.get("title", "Article"),
                         "url": blogger_url,
                         "category": metadata.get("category", "SHOPPERS"),
@@ -584,6 +585,7 @@ def load_published_posts(
                 elif not approved_only:
                     # Include unpublished posts
                     posts.append({
+                        "id": metadata.get("id"),  # Preserve post ID for Supabase linking
                         "title": metadata.get("title", "Article"),
                         "url": metadata.get("original_link", "#"),
                         "category": metadata.get("category", "SHOPPERS"),
@@ -595,6 +597,72 @@ def load_published_posts(
                 print(f"Warning: Could not load {filename}: {e}")
     
     return posts
+
+
+def save_newsletter_to_supabase(
+    campaign_id: str,
+    web_id: str,
+    subject: str,
+    html_content: str,
+    posts: List[Dict[str, Any]],
+    was_sent: bool = False
+) -> Dict[str, Any]:
+    """
+    Save newsletter record to Supabase after Mailchimp campaign creation.
+
+    Args:
+        campaign_id: Mailchimp campaign ID
+        web_id: Mailchimp web ID
+        subject: Email subject line
+        html_content: Newsletter HTML content
+        posts: List of blog posts included in newsletter
+        was_sent: Whether the newsletter was sent
+
+    Returns:
+        Result dictionary with success status
+    """
+    try:
+        from supabase import create_client
+
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_KEY")
+
+        if not url or not key:
+            print("Warning: Supabase credentials not set, skipping newsletter save")
+            return {"success": False, "error": "Missing Supabase credentials"}
+
+        supabase = create_client(url, key)
+
+        # Create newsletter record
+        newsletter_data = {
+            "title": f"Weekly Newsletter - {datetime.now().strftime('%B %d, %Y')}",
+            "subject": subject,
+            "html_content": html_content,
+            "status": "sent" if was_sent else "draft",
+            "mailchimp_campaign_id": campaign_id,
+            "mailchimp_web_id": str(web_id) if web_id else None,
+            "sent_at": datetime.utcnow().isoformat() if was_sent else None
+        }
+
+        result = supabase.table("newsletters").insert(newsletter_data).execute()
+        newsletter_id = result.data[0]["id"]
+
+        # Link blog posts (only those with valid IDs)
+        for position, post in enumerate(posts):
+            post_id = post.get("id")
+            if post_id:
+                supabase.table("newsletter_posts").insert({
+                    "newsletter_id": newsletter_id,
+                    "blog_post_id": post_id,
+                    "position": position
+                }).execute()
+
+        print(f"Newsletter saved to Supabase: {newsletter_id}")
+        return {"success": True, "newsletter_id": newsletter_id}
+
+    except Exception as e:
+        print(f"Warning: Could not save newsletter to Supabase: {e}")
+        return {"success": False, "error": str(e)}
 
 
 def create_newsletter_campaign(
@@ -657,7 +725,23 @@ def create_newsletter_campaign(
     if result.get("success") and send_immediately:
         send_result = mailchimp.send_campaign(result["campaign_id"])
         result["send_result"] = send_result
-    
+
+    # Save to Supabase after successful campaign creation
+    if result.get("success"):
+        # Combine all posts for linking
+        all_posts = shoppers_posts + recall_posts
+
+        # Save to Supabase
+        supabase_result = save_newsletter_to_supabase(
+            campaign_id=result.get("campaign_id"),
+            web_id=result.get("web_id"),
+            subject=subject,
+            html_content=html_content,
+            posts=all_posts,
+            was_sent=send_immediately or result.get("send_result", {}).get("success", False)
+        )
+        result["supabase_result"] = supabase_result
+
     return result
 
 
