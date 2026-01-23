@@ -32,6 +32,10 @@ on:
         required: false
         default: false
         type: boolean
+      audience_id:
+        description: 'Mailchimp audience/list ID (leave empty to use default)'
+        required: false
+        type: string
 
 jobs:
   # First job: Check if enough blog posts are published
@@ -153,13 +157,25 @@ jobs:
           # Verify google-genai SDK is importable (for image generation)
           python -c "from google import genai; from google.genai import types; print('google-genai SDK imported successfully')"
 
-      - name: Download latest blog posts
+      - name: Download latest blog posts (fallback)
         uses: actions/download-artifact@v4
         with:
           pattern: blog-posts-*
           path: blog_posts/
           merge-multiple: true
         continue-on-error: true
+
+      - name: Fetch published posts from database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          echo "Fetching fresh published posts from Supabase..."
+          mkdir -p blog_posts
+          python fetch_published_posts.py -o blog_posts/
+          echo ""
+          echo "Contents of blog_posts/:"
+          ls -la blog_posts/ || echo "Directory empty or does not exist"
 
       - name: Preview newsletter
         if: ${{ github.event.inputs.preview_only == 'true' }}
@@ -183,7 +199,12 @@ jobs:
             SUBJECT_FLAG="-s '${{ github.event.inputs.subject }}'"
           fi
 
-          python mailchimp_campaign.py -d blog_posts/ $SEND_FLAG $SUBJECT_FLAG > campaign_result.json
+          AUDIENCE_FLAG=""
+          if [ -n "${{ github.event.inputs.audience_id }}" ]; then
+            AUDIENCE_FLAG="--list-id '${{ github.event.inputs.audience_id }}'"
+          fi
+
+          python mailchimp_campaign.py -d blog_posts/ $SEND_FLAG $SUBJECT_FLAG $AUDIENCE_FLAG > campaign_result.json
 
           echo "## Campaign Result" >> $GITHUB_STEP_SUMMARY
           cat campaign_result.json >> $GITHUB_STEP_SUMMARY
