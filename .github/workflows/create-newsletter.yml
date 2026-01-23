@@ -196,12 +196,12 @@ jobs:
 
           SUBJECT_FLAG=""
           if [ -n "${{ github.event.inputs.subject }}" ]; then
-            SUBJECT_FLAG="-s '${{ github.event.inputs.subject }}'"
+            SUBJECT_FLAG="-s \"${{ github.event.inputs.subject }}\""
           fi
 
           AUDIENCE_FLAG=""
           if [ -n "${{ github.event.inputs.audience_id }}" ]; then
-            AUDIENCE_FLAG="--list-id '${{ github.event.inputs.audience_id }}'"
+            AUDIENCE_FLAG="--list-id ${{ github.event.inputs.audience_id }}"
           fi
 
           python mailchimp_campaign.py -d blog_posts/ $SEND_FLAG $SUBJECT_FLAG $AUDIENCE_FLAG > campaign_result.json
