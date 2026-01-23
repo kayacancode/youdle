@@ -878,10 +878,17 @@ def run_blog_post_workflow(
     print(f"Duration: {duration:.2f} seconds", file=sys.stderr)
     print(f"Output: {BLOG_POSTS_DIR}/", file=sys.stderr)
     
+    # Count posts by category
+    final_posts = final_state.get("final_posts", [])
+    shoppers_count = sum(1 for p in final_posts if p.get("category", "").upper() == "SHOPPERS")
+    recall_count = sum(1 for p in final_posts if p.get("category", "").upper() == "RECALL")
+
     # Return summary
     return {
         "success": len(final_state.get("errors", [])) == 0,
-        "posts_generated": len(final_state.get("final_posts", [])),
+        "posts_generated": len(final_posts),
+        "shoppers_count": shoppers_count,
+        "recall_count": recall_count,
         "files_saved": final_state.get("saved_files", []),
         "errors": final_state.get("errors", []),
         "duration_seconds": round(duration, 2),

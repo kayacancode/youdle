@@ -76,9 +76,8 @@ jobs:
             # Try to get counts from generation_result.json artifact
             if [ -f artifacts/generation_result.json ]; then
               POSTS=$(python -c "import json; d=json.load(open('artifacts/generation_result.json')); print(d.get('posts_generated', 7))" 2>/dev/null || echo "7")
-              # Default split: 6 shoppers, 1 recall
-              SHOPPERS="6"
-              RECALL="1"
+              SHOPPERS=$(python -c "import json; d=json.load(open('artifacts/generation_result.json')); print(d.get('shoppers_count', 0))" 2>/dev/null || echo "0")
+              RECALL=$(python -c "import json; d=json.load(open('artifacts/generation_result.json')); print(d.get('recall_count', 0))" 2>/dev/null || echo "0")
             else
               # Fallback: query Supabase for actual counts
               echo "No artifact found, querying Supabase for post counts..."
