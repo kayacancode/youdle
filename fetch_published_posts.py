@@ -127,9 +127,12 @@ def fetch_published_posts(supabase: Client, week_start: datetime) -> List[Dict[s
 
     try:
         # Query for published posts with blogger_url
+        # Note: blog_posts table columns are: id, title, category, status,
+        # blogger_url, blogger_post_id, article_url, html_content, image_url,
+        # created_at, updated_at, job_id, last_synced_at, blogger_published_at
         result = supabase.table("blog_posts").select(
             "id, title, category, status, blogger_url, blogger_post_id, "
-            "summary, original_link, created_at, generated_at"
+            "article_url, image_url, created_at, updated_at"
         ).gte(
             "created_at", week_start_iso
         ).eq(
@@ -159,16 +162,19 @@ def write_post_json(post: Dict[str, Any], output_dir: str) -> str:
     os.makedirs(output_dir, exist_ok=True)
 
     # Build the JSON structure expected by mailchimp_campaign.py
+    # Note: The blog_posts table doesn't have a summary column, so we leave it empty
+    # The newsletter will still work - it just won't show summaries under article links
     post_data = {
         "title": post.get("title", "Article"),
         "blogger_url": post.get("blogger_url"),
         "published_url": post.get("blogger_url"),  # Alias for compatibility
         "category": post.get("category", "SHOPPERS"),
-        "summary": post.get("summary", ""),
-        "description": post.get("summary", ""),  # Alias for compatibility
-        "original_link": post.get("original_link", ""),
-        "generated_at": post.get("generated_at", post.get("created_at", "")),
+        "summary": "",  # No summary column in blog_posts table
+        "description": "",  # Alias for compatibility
+        "original_link": post.get("article_url", ""),
+        "generated_at": post.get("created_at", ""),
         "blogger_post_id": post.get("blogger_post_id"),
+        "image_url": post.get("image_url"),
         "status": post.get("status"),
         "id": post.get("id")
     }
