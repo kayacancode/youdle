@@ -189,8 +189,9 @@ jobs:
           MAILCHIMP_LIST_ID: ${{ secrets.MAILCHIMP_LIST_ID }}
           MAILCHIMP_SERVER_PREFIX: ${{ secrets.MAILCHIMP_SERVER_PREFIX }}
         run: |
+          # Always send for scheduled runs, or when send_immediately is true for manual runs
           SEND_FLAG=""
-          if [ "${{ github.event.inputs.send_immediately }}" == "true" ]; then
+          if [ "${{ github.event_name }}" == "schedule" ] || [ "${{ github.event.inputs.send_immediately }}" == "true" ]; then
             SEND_FLAG="--send"
           fi
 
