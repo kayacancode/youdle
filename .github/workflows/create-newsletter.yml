@@ -20,7 +20,7 @@ on:
       send_immediately:
         description: 'Send campaign immediately'
         required: false
-        default: false
+        default: true
         type: boolean
       preview_only:
         description: 'Preview only (do not create campaign)'
