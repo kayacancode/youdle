@@ -600,16 +600,18 @@ def load_published_posts(
 def create_newsletter_campaign(
     directory: str = "blog_posts",
     subject: Optional[str] = None,
-    send_immediately: bool = False
+    send_immediately: bool = False,
+    list_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Create a newsletter campaign from published blog posts.
-    
+
     Args:
         directory: Path to blog posts directory
         subject: Email subject (auto-generated if not provided)
         send_immediately: Send the campaign immediately after creation
-        
+        list_id: Mailchimp audience/list ID (uses default if not provided)
+
     Returns:
         Campaign result
     """
@@ -633,7 +635,7 @@ def create_newsletter_campaign(
         }
     
     # Create campaign
-    mailchimp = MailchimpCampaign()
+    mailchimp = MailchimpCampaign(list_id=list_id)
     
     # Generate HTML
     html_content = mailchimp.create_newsletter_html(
@@ -668,6 +670,7 @@ if __name__ == "__main__":
     parser.add_argument("--subject", "-s", help="Email subject")
     parser.add_argument("--send", action="store_true", help="Send immediately")
     parser.add_argument("--preview", action="store_true", help="Preview HTML only")
+    parser.add_argument("--list-id", "-l", help="Mailchimp audience/list ID (overrides MAILCHIMP_LIST_ID env var)")
     
     args = parser.parse_args()
     
@@ -693,7 +696,8 @@ if __name__ == "__main__":
         result = create_newsletter_campaign(
             directory=args.directory,
             subject=args.subject,
-            send_immediately=args.send
+            send_immediately=args.send,
+            list_id=args.list_id
         )
         
         print(json.dumps(result, indent=2))
