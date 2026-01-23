@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Save, X, AlertCircle, Globe, Eye, Code, Image as ImageIcon } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Save, X, AlertCircle, Globe, Eye, Code, Image as ImageIcon, Loader2, Check } from 'lucide-react'
 import { Modal } from './Modal'
 import { RichTextEditor } from './RichTextEditor'
 import { MediaPickerModal } from './MediaPickerModal'
+import { useAutosave } from '@/hooks/useAutosave'
 import type { BlogPostUpdate, MediaItem } from '@/lib/api'
 
 interface BlogPost {
@@ -38,6 +39,29 @@ export function EditBlogPostModal({ isOpen, post, onClose, onSave }: EditBlogPos
   const [error, setError] = useState<string | null>(null)
   const [editorMode, setEditorMode] = useState<'visual' | 'html'>('visual')
   const [showMediaPicker, setShowMediaPicker] = useState(false)
+
+  // Autosave callback - saves without closing modal
+  const handleAutosave = useCallback(async (data: BlogPostUpdate) => {
+    await onSave(post.id, data)
+  }, [onSave, post.id])
+
+  // Validation for autosave
+  const validateFormData = useCallback((data: BlogPostUpdate): string | null => {
+    if (!data.title?.trim()) return 'Title is required'
+    if (!data.html_content?.trim()) return 'Content is required'
+    if (!data.category) return 'Category is required'
+    return null
+  }, [])
+
+  // Autosave hook
+  const { status: autosaveStatus, error: autosaveError } = useAutosave({
+    data: formData,
+    onSave: handleAutosave,
+    validate: validateFormData,
+    delay: 2000,
+    enabled: isOpen,
+    savedDisplayDuration: 2000,
+  })
 
   // Reset form when modal opens with new post data
   useEffect(() => {
@@ -96,17 +120,47 @@ export function EditBlogPostModal({ isOpen, post, onClose, onSave }: EditBlogPos
 
   const isPublishedToBlogger = !!post.blogger_post_id
 
+  // Render autosave status indicator
+  const renderAutosaveStatus = () => {
+    switch (autosaveStatus) {
+      case 'saving':
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-stone-500">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <span>Saving...</span>
+          </div>
+        )
+      case 'saved':
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-green-600">
+            <Check className="w-3.5 h-3.5" />
+            <span>Saved</span>
+          </div>
+        )
+      case 'error':
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-red-600">
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span>{autosaveError || 'Save failed'}</span>
+          </div>
+        )
+      default:
+        return null
+    }
+  }
+
   const footerContent = (
     <div className="flex items-center justify-between">
-      {/* Blogger sync indicator */}
-      {isPublishedToBlogger ? (
-        <div className="flex items-center gap-1.5 text-xs text-blue-600">
-          <Globe className="w-3.5 h-3.5" />
-          <span>Changes will sync to Blogger</span>
-        </div>
-      ) : (
-        <div />
-      )}
+      {/* Left side: Blogger sync indicator and autosave status */}
+      <div className="flex items-center gap-3">
+        {isPublishedToBlogger && (
+          <div className="flex items-center gap-1.5 text-xs text-blue-600">
+            <Globe className="w-3.5 h-3.5" />
+            <span>Changes will sync to Blogger</span>
+          </div>
+        )}
+        {renderAutosaveStatus()}
+      </div>
 
       <div className="flex items-center gap-2">
         <button
