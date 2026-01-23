@@ -132,7 +132,9 @@ export function BlogPostPreview({ post, onStatusChange, onDelete, onEdit, onPubl
           </div>
 
           <span className="text-xs text-stone-500">
-            {formatDate(post.created_at)}
+            {formatDate(post.status === 'published' && post.blogger_published_at
+              ? post.blogger_published_at
+              : post.created_at)}
           </span>
         </div>
 

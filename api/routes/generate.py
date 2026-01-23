@@ -778,6 +778,7 @@ async def sync_with_blogger():
                     db_post.get('status') != update_data.get('status', db_status) or
                     db_post.get('blogger_post_id') != blogger_id or
                     db_post.get('blogger_url') != update_data.get('blogger_url', existing_blogger_url) or
+                    db_post.get('blogger_published_at') != update_data.get('blogger_published_at') or
                     content_synced or
                     title_synced
                 )

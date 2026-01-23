@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { FileText, Filter, RefreshCw, ShoppingCart, AlertOctagon, Trash2, Globe } from 'lucide-react'
 import { api, type BlogPostUpdate } from '@/lib/api'
@@ -14,6 +14,7 @@ export default function PostsPage() {
   const [showSyncIssuesOnly, setShowSyncIssuesOnly] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
+  const [isAutoSyncing, setIsAutoSyncing] = useState(true)
 
   const { data: posts, isLoading, error } = useQuery({
     queryKey: ['posts', statusFilter, categoryFilter],
@@ -77,13 +78,15 @@ export default function PostsPage() {
       queryClient.invalidateQueries({ queryKey: ['posts'] })
       setLastSyncTime(new Date())
 
-      // Show success toast with summary
-      const summary = data.issues_fixed > 0
-        ? `Synced ${data.synced_count} posts, fixed ${data.issues_fixed} issues`
-        : `Synced ${data.synced_count} posts`
+      // Show success toast with summary (only if there were changes)
+      if (data.synced_count > 0 || data.issues_fixed > 0) {
+        const summary = data.issues_fixed > 0
+          ? `Synced ${data.synced_count} posts, fixed ${data.issues_fixed} issues`
+          : `Synced ${data.synced_count} posts`
 
-      setToast({ message: summary, type: 'success' })
-      setTimeout(() => setToast(null), 5000)
+        setToast({ message: summary, type: 'success' })
+        setTimeout(() => setToast(null), 5000)
+      }
     },
     onError: (error) => {
       setToast({
@@ -93,6 +96,32 @@ export default function PostsPage() {
       setTimeout(() => setToast(null), 5000)
     }
   })
+
+  // Auto-sync with Blogger on page load (silent, no spinner)
+  const hasAutoSynced = useRef(false)
+  useEffect(() => {
+    if (!hasAutoSynced.current) {
+      hasAutoSynced.current = true
+      api.syncWithBlogger()
+        .then((data) => {
+          queryClient.invalidateQueries({ queryKey: ['posts'] })
+          setLastSyncTime(new Date())
+          if (data.synced_count > 0 || data.issues_fixed > 0) {
+            const summary = data.issues_fixed > 0
+              ? `Synced ${data.synced_count} posts, fixed ${data.issues_fixed} issues`
+              : `Synced ${data.synced_count} posts`
+            setToast({ message: summary, type: 'success' })
+            setTimeout(() => setToast(null), 5000)
+          }
+        })
+        .catch(() => {
+          // Silent fail for auto-sync
+        })
+        .finally(() => {
+          setIsAutoSyncing(false)
+        })
+    }
+  }, [queryClient]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStatusChange = (postId: string, status: string) => {
     updateStatusMutation.mutate({ postId, status })
