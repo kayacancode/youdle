@@ -1,8 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, NewsletterReadiness } from '@/lib/api'
-import { CheckCircle2, AlertCircle, Clock, Mail } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Clock, Mail, Info, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -58,6 +59,8 @@ function getTimeRemaining(targetDate: Date): string {
 }
 
 export function NewsletterReadinessCard() {
+  const [showInfo, setShowInfo] = useState(false)
+
   const { data: readiness, isLoading } = useQuery<NewsletterReadiness>({
     queryKey: ['newsletterReadiness'],
     queryFn: () => api.getNewsletterReadiness(),
@@ -105,9 +108,18 @@ export function NewsletterReadinessCard() {
           >
             <Mail className={cn('w-5 h-5', isReady ? 'text-green-600' : 'text-amber-600')} />
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-stone-900">Newsletter Readiness</h3>
-            <p className="text-sm text-stone-500">This week's publishing status</p>
+          <div className="flex items-center gap-2">
+            <div>
+              <h3 className="text-lg font-semibold text-stone-900">Newsletter Readiness</h3>
+              <p className="text-sm text-stone-500">This week's publishing status</p>
+            </div>
+            <button
+              onClick={() => setShowInfo(!showInfo)}
+              className="p-1 rounded-full hover:bg-stone-200 transition-colors"
+              aria-label="Show information"
+            >
+              <Info className="w-4 h-4 text-stone-400 hover:text-stone-600" />
+            </button>
           </div>
         </div>
         <div
@@ -129,6 +141,43 @@ export function NewsletterReadinessCard() {
           )}
         </div>
       </div>
+
+      {/* Info Panel */}
+      {showInfo && (
+        <div className="mb-4 p-4 bg-white rounded-lg border border-stone-200 shadow-sm">
+          <div className="flex items-start justify-between mb-2">
+            <h4 className="font-medium text-stone-900">How this works</h4>
+            <button
+              onClick={() => setShowInfo(false)}
+              className="p-0.5 rounded hover:bg-stone-100 transition-colors"
+            >
+              <X className="w-4 h-4 text-stone-400" />
+            </button>
+          </div>
+          <ul className="text-sm text-stone-600 space-y-2">
+            <li className="flex gap-2">
+              <span className="text-stone-400">•</span>
+              <span>Blog posts are generated every <strong>Tuesday at 9 AM CST</strong></span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-stone-400">•</span>
+              <span>The newsletter is sent every <strong>Thursday at 9 AM CST</strong></span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-stone-400">•</span>
+              <span>Requirements: <strong>6 Shoppers</strong> + <strong>1 Recall</strong> articles must be published to Blogger</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-stone-400">•</span>
+              <span>Only posts created this week (since Tuesday) count toward the requirement</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-stone-400">•</span>
+              <span>If requirements aren't met by Thursday, the newsletter will be cancelled</span>
+            </li>
+          </ul>
+        </div>
+      )}
 
       {/* Progress bars */}
       <div className="space-y-4">
