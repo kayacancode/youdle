@@ -393,6 +393,60 @@ class SendGridNotifier:
         html = self._build_html(subject, content)
         return self.send_notification(subject, html)
 
+    def send_requirements_met_notification(
+        self,
+        published_count: int,
+        required_count: int,
+        shoppers_published: int = 0,
+        recall_published: int = 0
+    ) -> Dict[str, Any]:
+        """
+        Send notification that requirements are met and newsletter will be created.
+
+        Args:
+            published_count: Number of posts currently published
+            required_count: Number of posts required (7)
+            shoppers_published: Number of SHOPPERS posts published
+            recall_published: Number of RECALL posts published
+        """
+        subject = "Newsletter Ready: All Requirements Met"
+
+        content = f"""
+        <div class="urgency-low">
+            <h2>Newsletter Requirements Met</h2>
+            <p>All publishing requirements have been met. The newsletter will be created and sent automatically at <strong>9 AM CST today</strong>.</p>
+        </div>
+
+        <div class="status-box">
+            <h3 style="color: #28a745;">Publishing Status</h3>
+            <div class="status-item">
+                <span class="status-label">Posts Published:</span>
+                <span class="status-value status-good">{published_count} / {required_count}</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Shoppers Published:</span>
+                <span class="status-value status-good">{shoppers_published} / 6 required</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Recall Published:</span>
+                <span class="status-value status-good">{recall_published} / 1 required</span>
+            </div>
+        </div>
+
+        <p style="color: #28a745; font-weight: bold;">
+            The newsletter campaign will be created and sent shortly.
+        </p>
+
+        <p>You can review the posts that will be included in the newsletter:</p>
+
+        <p style="text-align: center;">
+            <a href="{DASHBOARD_URL}/posts?status=published" class="cta-button">View Published Posts</a>
+        </p>
+        """
+
+        html = self._build_html(subject, content)
+        return self.send_notification(subject, html)
+
     def send_newsletter_cancelled_notification(
         self,
         published_count: int,
@@ -468,7 +522,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Send notification emails via SendGrid")
     parser.add_argument("--type", "-t", required=True,
-                        choices=["generated", "reminder", "warning", "cancelled"],
+                        choices=["generated", "reminder", "warning", "cancelled", "requirements_met"],
                         help="Type of notification to send")
     parser.add_argument("--reminder-type", "-r",
                         choices=["tuesday_evening", "wednesday_morning", "wednesday_evening"],
@@ -509,6 +563,13 @@ if __name__ == "__main__":
         )
     elif args.type == "cancelled":
         result = notifier.send_newsletter_cancelled_notification(
+            published_count=args.published,
+            required_count=7,
+            shoppers_published=args.shoppers,
+            recall_published=args.recall
+        )
+    elif args.type == "requirements_met":
+        result = notifier.send_requirements_met_notification(
             published_count=args.published,
             required_count=7,
             shoppers_published=args.shoppers,

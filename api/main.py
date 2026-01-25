@@ -152,6 +152,71 @@ async def get_stats():
         }
 
 
+@app.get("/api/newsletter-readiness")
+async def get_newsletter_readiness():
+    """
+    Get current newsletter readiness status for this week.
+
+    Returns published article counts vs requirements and next newsletter date.
+    """
+    try:
+        # Import check_blog_status module
+        from check_blog_status import (
+            check_publish_status,
+            REQUIRED_SHOPPERS,
+            REQUIRED_RECALL,
+            REQUIRED_TOTAL
+        )
+        import pytz
+        from datetime import timedelta
+
+        # Get current publish status
+        status = check_publish_status()
+
+        if not status.get("success"):
+            return status
+
+        # Calculate next Thursday 9 AM CST
+        tz = pytz.timezone('America/Chicago')
+        now = datetime.now(tz)
+
+        # Find days until Thursday (Thursday = 3 in weekday())
+        days_until_thursday = (3 - now.weekday()) % 7
+
+        # If it's Thursday and past 9 AM, use next Thursday
+        if days_until_thursday == 0 and now.hour >= 9:
+            days_until_thursday = 7
+
+        next_thursday = now + timedelta(days=days_until_thursday)
+        next_thursday = next_thursday.replace(hour=9, minute=0, second=0, microsecond=0)
+
+        # Calculate what's still needed
+        shoppers_needed = max(0, REQUIRED_SHOPPERS - status["shoppers_published"])
+        recall_needed = max(0, REQUIRED_RECALL - status["recall_published"])
+
+        return {
+            "success": True,
+            "week_start": status["week_start"],
+            "shoppers_published": status["shoppers_published"],
+            "shoppers_required": REQUIRED_SHOPPERS,
+            "recall_published": status["recall_published"],
+            "recall_required": REQUIRED_RECALL,
+            "total_published": status["published_posts"],
+            "total_required": REQUIRED_TOTAL,
+            "meets_requirement": status["meets_requirement"],
+            "shoppers_needed": shoppers_needed,
+            "recall_needed": recall_needed,
+            "next_newsletter": next_thursday.isoformat(),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
