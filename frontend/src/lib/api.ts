@@ -144,6 +144,23 @@ export interface AudiencesResponse {
   current: string | null
 }
 
+export interface NewsletterReadiness {
+  success: boolean
+  week_start: string
+  shoppers_published: number
+  shoppers_required: number
+  recall_published: number
+  recall_required: number
+  total_published: number
+  total_required: number
+  meets_requirement: boolean
+  shoppers_needed: number
+  recall_needed: number
+  next_newsletter: string
+  timestamp: string
+  error?: string
+}
+
 // Media types
 export interface MediaItem {
   id: string
@@ -201,6 +218,11 @@ class ApiClient {
   // Stats
   async getStats(): Promise<SystemStats> {
     return this.request('/api/stats')
+  }
+
+  // Newsletter Readiness
+  async getNewsletterReadiness(): Promise<NewsletterReadiness> {
+    return this.request('/api/newsletter-readiness')
   }
 
   // Search

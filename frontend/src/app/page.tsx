@@ -14,6 +14,7 @@ import { StatsCard } from '@/components/StatsCard'
 import { RunStatus } from '@/components/RunStatus'
 import { QuickActions } from '@/components/QuickActions'
 import { ScheduleBanner } from '@/components/ScheduleBanner'
+import { NewsletterReadinessCard } from '@/components/NewsletterReadinessCard'
 import { formatNumber } from '@/lib/utils'
 
 export default function DashboardPage() {
@@ -78,6 +79,9 @@ export default function DashboardPage() {
           jobsData?.jobs?.find(j => j.status === 'completed')?.completed_at
         }
       />
+
+      {/* Newsletter Readiness */}
+      <NewsletterReadinessCard />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">

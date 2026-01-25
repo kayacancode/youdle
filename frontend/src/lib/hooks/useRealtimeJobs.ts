@@ -61,11 +61,12 @@ export function useRealtimePosts() {
     try {
       channel = subscribeToPosts((payload) => {
         setLastUpdate(new Date())
-        
+
         // Invalidate relevant queries
         queryClient.invalidateQueries({ queryKey: ['posts'] })
         queryClient.invalidateQueries({ queryKey: ['reviewPosts'] })
         queryClient.invalidateQueries({ queryKey: ['stats'] })
+        queryClient.invalidateQueries({ queryKey: ['newsletterReadiness'] })
         
         // If a specific post was updated, invalidate its details
         if (payload.new?.id) {
