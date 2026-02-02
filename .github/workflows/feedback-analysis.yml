@@ -31,8 +31,8 @@ jobs:
           # Clean install to avoid namespace package conflicts with google.*
           pip uninstall -y google google-cloud google-api-core || true
           pip install --no-cache-dir -r requirements.txt
-          # Verify google-generativeai is importable
-          python -c "import google.generativeai as genai; print(f'✓ google.generativeai imported successfully')"
+          # Verify google-genai SDK is importable
+          python -c "from google import genai; from google.genai import types; print('✓ google-genai SDK imported successfully')"
       
       - name: Analyze feedback patterns
         env:
