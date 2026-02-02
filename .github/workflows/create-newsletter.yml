@@ -116,16 +116,16 @@ print(f'Success notification result: {result}')
 
             # Send cancellation notification
             python -c "
-          from sendgrid_notifier import SendGridNotifier
-          notifier = SendGridNotifier()
-          result = notifier.send_newsletter_cancelled_notification(
-              published_count=${PUBLISHED},
-              required_count=7,
-              shoppers_published=${SHOPPERS},
-              recall_published=${RECALL}
-          )
-          print(f'Cancellation notification result: {result}')
-          "
+            from sendgrid_notifier import SendGridNotifier
+            notifier = SendGridNotifier()
+            result = notifier.send_newsletter_cancelled_notification(
+                published_count=${PUBLISHED},
+                required_count=7,
+                shoppers_published=${SHOPPERS},
+                recall_published=${RECALL}
+            )
+            print(f'Cancellation notification result: {result}')
+            "
           fi
 
       - name: Summary (check result)
