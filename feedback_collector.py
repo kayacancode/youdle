@@ -11,7 +11,7 @@ try:
 except ImportError:
     pass
 
-from supabase_storage import get_supabase_client, SupabaseStorage
+from supabase_storage import get_supabase_client, get_supabase_storage, SupabaseStorage
 from example_store import ExampleStore
 
 
@@ -28,9 +28,9 @@ class FeedbackCollector:
         Initialize the feedback collector.
         
         Args:
-            supabase_client: Optional Supabase client
+            supabase_client: Optional SupabaseStorage instance
         """
-        self.client = supabase_client or get_supabase_client()
+        self.client = supabase_client or get_supabase_storage()
         self.example_store = ExampleStore(self.client)
         self._local_feedback: List[Dict] = []
     
