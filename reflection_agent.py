@@ -46,21 +46,25 @@ class ReflectionAgent:
             "pattern": r'<a[^>]+href=["\']https?://(?:www\.)?youdle\.io/?["\'][^>]*>',
             "description": "Must include link to Youdle.io"
         },
-        "more_info_link": {
-            "pattern": r'<a[^>]+href=["\'][^"\']+["\'][^>]*>More information</a>',
-            "description": "Must include 'More information' link",
+        "source_link": {
+            "pattern": r'<a[^>]+href=["\'][^"\']+["\'][^>]*>Read the full story</a>',
+            "description": "Must include 'Read the full story' source link",
             "flags": re.IGNORECASE
         },
         "community_link": {
             "pattern": r'<a[^>]+href=["\']https?://(?:www\.)?youdle\.io/community["\'][^>]*>.*Community.*</a>',
-            "description": "Must end with Youdle Community link",
+            "description": "Must include Youdle Community link",
             "flags": re.IGNORECASE | re.DOTALL
+        },
+        "blog_subscription_link": {
+            "pattern": r'<a[^>]+href=["\']https?://getyoudle\.com/blog["\'][^>]*>',
+            "description": "Must include Youdle Blog subscription link"
         }
     }
     
-    # Word count target
-    TARGET_WORD_COUNT = 250
-    WORD_COUNT_TOLERANCE = 50  # ±50 words
+    # Word count target (updated for 400-600 word requirement)
+    TARGET_WORD_COUNT = 500  # Center of 400-600 range
+    WORD_COUNT_TOLERANCE = 100  # ±100 words allows 400-600
     
     def __init__(self):
         """Initialize the reflection agent."""
