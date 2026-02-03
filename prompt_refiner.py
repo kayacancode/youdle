@@ -11,7 +11,7 @@ try:
 except ImportError:
     pass
 
-from supabase_storage import get_supabase_client, SupabaseStorage
+from supabase_storage import get_supabase_storage, SupabaseStorage
 
 
 class PromptRefiner:
@@ -31,7 +31,7 @@ class PromptRefiner:
         Args:
             supabase_client: Optional Supabase client
         """
-        self.client = supabase_client or get_supabase_client()
+        self.client = supabase_client or get_supabase_storage()
         self._prompt_versions: Dict[str, List[Dict]] = {
             "shoppers": [],
             "recall": []
