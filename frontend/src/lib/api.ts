@@ -318,6 +318,8 @@ class ApiClient {
     synced_count: number
     issues_found: number
     issues_fixed: number
+    imported_count: number
+    pushed_count: number
     blogger_live_posts: number
     blogger_draft_posts: number
     database_posts_checked: number
