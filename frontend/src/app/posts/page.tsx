@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FileText, Filter, RefreshCw, ShoppingCart, AlertOctagon, Trash2, Globe } from 'lucide-react'
+import { FileText, Filter, RefreshCw, ShoppingCart, AlertOctagon, Trash2, Globe, Search } from 'lucide-react'
 import { api, type BlogPostUpdate } from '@/lib/api'
 import { BlogPostPreview } from '@/components/BlogPostPreview'
 import { cn, getStatusColor } from '@/lib/utils'
@@ -12,6 +12,7 @@ export default function PostsPage() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [showSyncIssuesOnly, setShowSyncIssuesOnly] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
   const [isAutoSyncing, setIsAutoSyncing] = useState(true)
@@ -79,10 +80,13 @@ export default function PostsPage() {
       setLastSyncTime(new Date())
 
       // Show success toast with summary (only if there were changes)
-      if (data.synced_count > 0 || data.issues_fixed > 0) {
-        const summary = data.issues_fixed > 0
-          ? `Synced ${data.synced_count} posts, fixed ${data.issues_fixed} issues`
-          : `Synced ${data.synced_count} posts`
+      if (data.synced_count > 0 || data.issues_fixed > 0 || data.imported_count > 0 || data.pushed_count > 0) {
+        const parts = []
+        if (data.synced_count > 0) parts.push(`Synced ${data.synced_count} posts`)
+        if (data.issues_fixed > 0) parts.push(`fixed ${data.issues_fixed} issues`)
+        if (data.imported_count > 0) parts.push(`imported ${data.imported_count} from Blogger`)
+        if (data.pushed_count > 0) parts.push(`pushed ${data.pushed_count} to Blogger`)
+        const summary = parts.join(', ')
 
         setToast({ message: summary, type: 'success' })
         setTimeout(() => setToast(null), 5000)
@@ -106,10 +110,13 @@ export default function PostsPage() {
         .then((data) => {
           queryClient.invalidateQueries({ queryKey: ['posts'] })
           setLastSyncTime(new Date())
-          if (data.synced_count > 0 || data.issues_fixed > 0) {
-            const summary = data.issues_fixed > 0
-              ? `Synced ${data.synced_count} posts, fixed ${data.issues_fixed} issues`
-              : `Synced ${data.synced_count} posts`
+          if (data.synced_count > 0 || data.issues_fixed > 0 || data.imported_count > 0 || data.pushed_count > 0) {
+            const parts = []
+            if (data.synced_count > 0) parts.push(`Synced ${data.synced_count} posts`)
+            if (data.issues_fixed > 0) parts.push(`fixed ${data.issues_fixed} issues`)
+            if (data.imported_count > 0) parts.push(`imported ${data.imported_count} from Blogger`)
+            if (data.pushed_count > 0) parts.push(`pushed ${data.pushed_count} to Blogger`)
+            const summary = parts.join(', ')
             setToast({ message: summary, type: 'success' })
             setTimeout(() => setToast(null), 5000)
           }
@@ -157,10 +164,16 @@ export default function PostsPage() {
     return acc
   }, {} as Record<string, number>) || {}
 
-  // Filter posts with sync issues (published but no blogger_url)
+  // Filter posts with sync issues and search query
   const filteredPosts = posts?.filter(post => {
-    if (showSyncIssuesOnly) {
-      return post.status === 'published' && !post.blogger_url
+    // Filter by sync issues
+    if (showSyncIssuesOnly && !(post.status === 'published' && !post.blogger_url)) {
+      return false
+    }
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      return post.title.toLowerCase().includes(query)
     }
     return true
   })
@@ -229,6 +242,23 @@ export default function PostsPage() {
       {/* Filters */}
       <div className="rounded-2xl bg-stone-50/50 border border-stone-200 p-8">
         <div className="flex flex-wrap items-center gap-4">
+          {/* Search */}
+          <div className="flex-1 min-w-[200px] max-w-md">
+            <label className="block text-xs font-medium text-stone-500 mb-2">
+              Search
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+              <input
+                type="text"
+                placeholder="Search posts by title..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-stone-200 bg-white text-sm placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
           {/* Status Filter */}
           <div>
             <label className="block text-xs font-medium text-stone-500 mb-2">

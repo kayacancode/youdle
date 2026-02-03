@@ -42,10 +42,10 @@ class BlogPost(BaseModel):
     id: str
     title: str
     html_content: str
-    image_url: Optional[str]
+    image_url: Optional[str] = None
     category: str
     status: str
-    article_url: str
+    article_url: Optional[str] = None
     created_at: str
     blogger_post_id: Optional[str] = None
     blogger_url: Optional[str] = None
@@ -587,10 +587,11 @@ def title_similarity(title1: str, title2: str) -> float:
 @router.post("/blogger/sync")
 async def sync_with_blogger():
     """
-    Enhanced sync with comprehensive three-phase detection and auto-fix:
+    Enhanced sync with comprehensive four-phase detection and auto-fix:
     Phase 1: Discovery - Fetch all LIVE and DRAFT posts from Blogger
-    Phase 2: Verification - Detect status mismatches
-    Phase 3: Auto-Fix - Fix detected issues
+    Phase 2: Verification - Detect status mismatches between local DB and Blogger
+    Phase 3: Auto-Fix - Fix detected issues (update local posts)
+    Phase 4: Import - Import posts from Blogger that don't exist locally
     """
     try:
         from supabase_storage import get_supabase_client
@@ -623,7 +624,11 @@ async def sync_with_blogger():
         synced_count = 0
         issues_found = 0
         issues_fixed = 0
+        imported_count = 0
         details = []
+
+        # Track which Blogger posts have been matched to local posts
+        matched_blogger_ids = set()
 
         # === PHASE 2 & 3: VERIFICATION AND AUTO-FIX ===
         for db_post in db_posts:
@@ -709,6 +714,7 @@ async def sync_with_blogger():
             # Process matched posts
             if blogger_post:
                 blogger_id = blogger_post.get('id')
+                matched_blogger_ids.add(blogger_id)  # Track matched posts
                 blogger_url = blogger_post.get('url')
                 blogger_status = 'LIVE' if blogger_id in live_post_ids else 'DRAFT'
                 blogger_title = blogger_post.get('title', '')
@@ -799,11 +805,114 @@ async def sync_with_blogger():
                             "action_taken": action_taken
                         })
 
+        # === PHASE 4: IMPORT NEW POSTS FROM BLOGGER ===
+        # Import posts that exist on Blogger but not in the local database
+        for blogger_post in all_blogger_posts:
+            blogger_id = blogger_post.get('id')
+
+            # Skip posts that were already matched to local posts
+            if blogger_id in matched_blogger_ids:
+                continue
+
+            blogger_title = blogger_post.get('title', '')
+            blogger_content = blogger_post.get('content', '')
+            blogger_url = blogger_post.get('url')
+            blogger_status = 'LIVE' if blogger_id in live_post_ids else 'DRAFT'
+            blogger_published_at = blogger_post.get('published')
+
+            # Determine local status based on Blogger status
+            local_status = 'published' if blogger_status == 'LIVE' else 'draft'
+
+            # Create new post in database
+            new_post_id = str(uuid4())
+            insert_data = {
+                "id": new_post_id,
+                "title": blogger_title,
+                "html_content": blogger_content,
+                "status": local_status,
+                "blogger_post_id": blogger_id,
+                "blogger_url": blogger_url if blogger_status == 'LIVE' else None,
+                "blogger_published_at": blogger_published_at if blogger_status == 'LIVE' else None,
+                "category": "SHOPPERS",  # Default category for imported posts
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat(),
+                "last_synced_at": datetime.utcnow().isoformat()
+            }
+
+            try:
+                supabase.table("blog_posts").insert(insert_data).execute()
+                imported_count += 1
+                details.append({
+                    "post_id": new_post_id,
+                    "title": blogger_title,
+                    "issue_type": "imported_from_blogger",
+                    "local_status": local_status,
+                    "blogger_status": blogger_status,
+                    "action_taken": "created_new_post"
+                })
+            except Exception as import_err:
+                details.append({
+                    "post_id": None,
+                    "title": blogger_title,
+                    "issue_type": "import_failed",
+                    "local_status": None,
+                    "blogger_status": blogger_status,
+                    "action_taken": f"error: {str(import_err)}"
+                })
+
+        # === PHASE 5: PUSH LOCAL DRAFTS TO BLOGGER ===
+        # Create drafts on Blogger for local posts that don't have a blogger_post_id
+        pushed_count = 0
+        for db_post in db_posts:
+            # Skip posts that already have a blogger_post_id
+            if db_post.get('blogger_post_id'):
+                continue
+
+            # Only push drafts and reviewed posts (not published without blogger link)
+            if db_post.get('status') not in ['draft', 'reviewed']:
+                continue
+
+            try:
+                # Create as draft on Blogger
+                blogger_result = blogger.publish_post(
+                    title=db_post.get('title', 'Untitled'),
+                    html_content=db_post.get('html_content', ''),
+                    labels=[db_post.get('category', 'SHOPPERS')],
+                    is_draft=True  # Create as draft, not published
+                )
+
+                # Update local post with blogger_post_id
+                supabase.table("blog_posts").update({
+                    "blogger_post_id": blogger_result['blogger_post_id'],
+                    "last_synced_at": datetime.utcnow().isoformat()
+                }).eq("id", db_post['id']).execute()
+
+                pushed_count += 1
+                details.append({
+                    "post_id": db_post['id'],
+                    "title": db_post.get('title', ''),
+                    "issue_type": "pushed_draft_to_blogger",
+                    "local_status": db_post.get('status'),
+                    "blogger_status": "DRAFT",
+                    "action_taken": "created_blogger_draft"
+                })
+            except Exception as push_err:
+                details.append({
+                    "post_id": db_post['id'],
+                    "title": db_post.get('title', ''),
+                    "issue_type": "push_failed",
+                    "local_status": db_post.get('status'),
+                    "blogger_status": None,
+                    "action_taken": f"error: {str(push_err)}"
+                })
+
         return {
-            "message": f"Sync completed. {synced_count} posts synced, {issues_fixed} issues fixed.",
+            "message": f"Sync completed. {synced_count} synced, {issues_fixed} fixed, {imported_count} imported, {pushed_count} pushed to Blogger.",
             "synced_count": synced_count,
             "issues_found": issues_found,
             "issues_fixed": issues_fixed,
+            "imported_count": imported_count,
+            "pushed_count": pushed_count,
             "blogger_live_posts": len(live_posts),
             "blogger_draft_posts": len(draft_posts),
             "database_posts_checked": len(db_posts),
