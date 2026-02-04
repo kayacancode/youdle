@@ -10,6 +10,7 @@ from difflib import SequenceMatcher
 from uuid import uuid4
 from typing import Optional, List
 from datetime import datetime
+from dateutil.parser import isoparse
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel
@@ -377,6 +378,11 @@ async def update_blog_post(post_id: str, updates: BlogPostUpdate):
                             blogger_post_id=blogger_post_id,
                             **blogger_update_kwargs
                         )
+                        # Mark that Blogger is now up to date
+                        if blogger_sync_result and "error" not in blogger_sync_result:
+                            supabase.table("blog_posts").update({
+                                "last_synced_at": datetime.utcnow().isoformat()
+                            }).eq("id", post_id).execute()
             except Exception as blogger_err:
                 # Don't fail the whole request if Blogger sync fails
                 blogger_sync_result = {"error": str(blogger_err)}
@@ -765,19 +771,54 @@ async def sync_with_blogger():
                     update_data["blogger_url"] = blogger_url
                     update_data["blogger_published_at"] = blogger_post.get('published')
 
-                # Sync content and title from Blogger
+                # Timestamp-aware content sync: compare updated times to decide direction
                 content_synced = False
                 title_synced = False
 
-                if blogger_title and blogger_title != db_post.get('title', ''):
-                    update_data['title'] = blogger_title
-                    title_synced = True
+                blogger_updated_str = blogger_post.get('updated')
+                local_updated_str = db_post.get('updated_at')
 
-                if blogger_content:
-                    db_content = db_post.get('html_content', '')
-                    if blogger_content != db_content:
-                        update_data['html_content'] = blogger_content
-                        content_synced = True
+                blogger_updated_ts = None
+                local_updated_ts = None
+                try:
+                    if blogger_updated_str:
+                        blogger_updated_ts = isoparse(blogger_updated_str)
+                    if local_updated_str:
+                        local_updated_ts = isoparse(local_updated_str)
+                except Exception:
+                    pass  # If parsing fails, skip content sync
+
+                if blogger_updated_ts and local_updated_ts:
+                    if blogger_updated_ts > local_updated_ts:
+                        # Blogger is newer — pull content from Blogger to local
+                        if blogger_title and blogger_title != db_post.get('title', ''):
+                            update_data['title'] = blogger_title
+                            title_synced = True
+
+                        if blogger_content:
+                            db_content = db_post.get('html_content', '')
+                            if blogger_content != db_content:
+                                update_data['html_content'] = blogger_content
+                                content_synced = True
+                    elif local_updated_ts > blogger_updated_ts:
+                        # Local is newer — push content from local to Blogger
+                        try:
+                            push_kwargs = {}
+                            local_title = db_post.get('title', '')
+                            local_content = db_post.get('html_content', '')
+
+                            if local_title and local_title != blogger_title:
+                                push_kwargs['title'] = local_title
+                            if local_content and local_content != blogger_content:
+                                push_kwargs['html_content'] = local_content
+
+                            if push_kwargs:
+                                blogger.update_post(
+                                    blogger_post_id=blogger_id,
+                                    **push_kwargs
+                                )
+                        except Exception:
+                            pass  # Best-effort push; don't fail the sync
 
                 # Check if update is needed
                 needs_update = (
@@ -923,5 +964,135 @@ async def sync_with_blogger():
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to sync with Blogger: {str(e)}")
+
+
+@router.post("/blogger/sync-light")
+async def sync_with_blogger_light():
+    """
+    Lightweight sync for page-load use. Only checks local posts that already
+    have a blogger_post_id by fetching each individually from Blogger.
+    Uses timestamp comparison to avoid overwriting recent local edits.
+    """
+    try:
+        from supabase_storage import get_supabase_client
+        from blogger_client import get_blogger_client
+
+        supabase = get_supabase_client()
+        blogger = get_blogger_client()
+
+        if not blogger.is_configured():
+            return {"message": "Blogger not configured", "synced_count": 0, "posts_checked": 0}
+
+        # Only fetch local posts that already have a blogger_post_id
+        db_result = supabase.table("blog_posts") \
+            .select("*") \
+            .not_.is_("blogger_post_id", "null") \
+            .execute()
+        db_posts = db_result.data or []
+
+        synced_count = 0
+
+        for db_post in db_posts:
+            blogger_post_id = db_post.get("blogger_post_id")
+            if not blogger_post_id:
+                continue
+
+            try:
+                blogger_post = blogger.get_post_by_id(blogger_post_id)
+            except Exception:
+                continue  # Skip on API error
+
+            if blogger_post is None:
+                # Post was deleted on Blogger
+                if db_post.get("status") == "published":
+                    supabase.table("blog_posts").update({
+                        "status": "reviewed",
+                        "blogger_post_id": None,
+                        "blogger_url": None,
+                        "blogger_published_at": None,
+                        "updated_at": datetime.utcnow().isoformat(),
+                        "last_synced_at": datetime.utcnow().isoformat()
+                    }).eq("id", db_post["id"]).execute()
+                    synced_count += 1
+                continue
+
+            # Determine Blogger status
+            blogger_status_raw = blogger_post.get("status", "").upper()
+            is_live = blogger_status_raw == "LIVE"
+
+            update_data = {
+                "last_synced_at": datetime.utcnow().isoformat()
+            }
+
+            # Fix status mismatches
+            if is_live and db_post.get("status") != "published":
+                update_data["status"] = "published"
+                update_data["blogger_url"] = blogger_post.get("url")
+                update_data["blogger_published_at"] = blogger_post.get("published")
+            elif not is_live and db_post.get("status") == "published":
+                update_data["blogger_url"] = None
+                update_data["blogger_published_at"] = None
+
+            # Timestamp-aware content sync
+            blogger_updated_str = blogger_post.get("updated")
+            local_updated_str = db_post.get("updated_at")
+
+            blogger_updated_ts = None
+            local_updated_ts = None
+            try:
+                if blogger_updated_str:
+                    blogger_updated_ts = isoparse(blogger_updated_str)
+                if local_updated_str:
+                    local_updated_ts = isoparse(local_updated_str)
+            except Exception:
+                pass
+
+            if blogger_updated_ts and local_updated_ts:
+                blogger_title = blogger_post.get("title", "")
+                blogger_content = blogger_post.get("content", "")
+
+                if blogger_updated_ts > local_updated_ts:
+                    # Blogger is newer — pull content to local
+                    if blogger_title and blogger_title != db_post.get("title", ""):
+                        update_data["title"] = blogger_title
+                    if blogger_content and blogger_content != db_post.get("html_content", ""):
+                        update_data["html_content"] = blogger_content
+                elif local_updated_ts > blogger_updated_ts:
+                    # Local is newer — push content to Blogger
+                    try:
+                        push_kwargs = {}
+                        local_title = db_post.get("title", "")
+                        local_content = db_post.get("html_content", "")
+
+                        if local_title and local_title != blogger_title:
+                            push_kwargs["title"] = local_title
+                        if local_content and local_content != blogger_content:
+                            push_kwargs["html_content"] = local_content
+
+                        if push_kwargs:
+                            blogger.update_post(
+                                blogger_post_id=blogger_post_id,
+                                **push_kwargs
+                            )
+                    except Exception:
+                        pass  # Best-effort push
+
+            # Only write if there are meaningful changes beyond last_synced_at
+            if len(update_data) > 1:
+                update_data["updated_at"] = datetime.utcnow().isoformat()
+                supabase.table("blog_posts").update(update_data).eq("id", db_post["id"]).execute()
+                synced_count += 1
+            else:
+                # Still update last_synced_at
+                supabase.table("blog_posts").update(update_data).eq("id", db_post["id"]).execute()
+
+        return {
+            "message": f"Light sync completed. {synced_count} posts updated.",
+            "synced_count": synced_count,
+            "posts_checked": len(db_posts)
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Light sync failed: {str(e)}")
 
 

@@ -101,23 +101,17 @@ export default function PostsPage() {
     }
   })
 
-  // Auto-sync with Blogger on page load (silent, no spinner)
+  // Auto-sync with Blogger on page load (lightweight, no full list fetch)
   const hasAutoSynced = useRef(false)
   useEffect(() => {
     if (!hasAutoSynced.current) {
       hasAutoSynced.current = true
-      api.syncWithBlogger()
+      api.syncWithBloggerLight()
         .then((data) => {
           queryClient.invalidateQueries({ queryKey: ['posts'] })
           setLastSyncTime(new Date())
-          if (data.synced_count > 0 || data.issues_fixed > 0 || data.imported_count > 0 || data.pushed_count > 0) {
-            const parts = []
-            if (data.synced_count > 0) parts.push(`Synced ${data.synced_count} posts`)
-            if (data.issues_fixed > 0) parts.push(`fixed ${data.issues_fixed} issues`)
-            if (data.imported_count > 0) parts.push(`imported ${data.imported_count} from Blogger`)
-            if (data.pushed_count > 0) parts.push(`pushed ${data.pushed_count} to Blogger`)
-            const summary = parts.join(', ')
-            setToast({ message: summary, type: 'success' })
+          if (data.synced_count > 0) {
+            setToast({ message: `Synced ${data.synced_count} posts from Blogger`, type: 'success' })
             setTimeout(() => setToast(null), 5000)
           }
         })
