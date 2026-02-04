@@ -337,6 +337,16 @@ class ApiClient {
     })
   }
 
+  async syncWithBloggerLight(): Promise<{
+    message: string
+    synced_count: number
+    posts_checked: number
+  }> {
+    return this.request('/api/generate/blogger/sync-light', {
+      method: 'POST',
+    })
+  }
+
   // Jobs
   async listJobs(params: {
     status?: string

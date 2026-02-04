@@ -4,6 +4,9 @@
 import os
 import sys
 import hashlib
+
+# Allow importing blogger_client from api/ directory
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'api'))
 import asyncio
 from datetime import datetime
 from typing import Dict, Any, List, Optional, TypedDict, Annotated
@@ -756,6 +759,71 @@ def save_posts_node(state: BlogPostState) -> Dict[str, Any]:
     }
 
 
+def push_drafts_to_blogger_node(state: BlogPostState) -> Dict[str, Any]:
+    """
+    Node: Push newly saved posts to Blogger as drafts.
+    Runs after save_posts_node. Best-effort — failures do not block the workflow.
+    """
+    logs = [f"[{datetime.now().isoformat()}] Pushing drafts to Blogger..."]
+
+    try:
+        from blogger_client import get_blogger_client
+        blogger = get_blogger_client()
+
+        if not blogger.is_configured():
+            logs.append("  Blogger not configured, skipping draft push")
+            return {"logs": logs}
+    except Exception as e:
+        logs.append(f"  Could not initialize Blogger client: {str(e)}")
+        return {"logs": logs}
+
+    try:
+        supabase = get_supabase_client()
+    except Exception:
+        logs.append("  Could not connect to Supabase, skipping draft push")
+        return {"logs": logs}
+
+    final_posts = state.get("final_posts", [])
+    pushed = 0
+
+    for post in final_posts:
+        title = post.get("title", "Untitled")
+        html = post.get("html", "")
+        category = post.get("category", "SHOPPERS")
+
+        try:
+            result = blogger.publish_post(
+                title=title,
+                html_content=html,
+                labels=[category.upper()],
+                is_draft=True
+            )
+            blogger_post_id = result.get("blogger_post_id")
+
+            if blogger_post_id:
+                # Find the DB row by title (just inserted by save_posts_node)
+                db_result = supabase.table("blog_posts") \
+                    .select("id") \
+                    .eq("title", title) \
+                    .order("created_at", desc=True) \
+                    .limit(1) \
+                    .execute()
+
+                if db_result.data:
+                    supabase.table("blog_posts").update({
+                        "blogger_post_id": blogger_post_id,
+                        "last_synced_at": datetime.now().isoformat()
+                    }).eq("id", db_result.data[0]["id"]).execute()
+
+            pushed += 1
+            logs.append(f"  Created Blogger draft for: {title[:40]}")
+        except Exception as e:
+            logs.append(f"  Failed to push '{title[:40]}' to Blogger: {str(e)}")
+
+    logs.append(f"Pushed {pushed}/{len(final_posts)} drafts to Blogger")
+    return {"logs": logs}
+
+
 # ============================================================================
 # GRAPH CONSTRUCTION
 # ============================================================================
@@ -781,7 +849,8 @@ def create_blog_post_graph() -> StateGraph:
     workflow.add_node("upload_images", upload_images_node)
     workflow.add_node("assemble_html", assemble_html_node)
     workflow.add_node("save_posts", save_posts_node)
-    
+    workflow.add_node("push_drafts_to_blogger", push_drafts_to_blogger_node)
+
     # Add edges
     workflow.add_edge(START, "search_articles")
     workflow.add_edge("search_articles", "select_articles")
@@ -806,7 +875,8 @@ def create_blog_post_graph() -> StateGraph:
     workflow.add_edge("generate_images", "upload_images")
     workflow.add_edge("upload_images", "assemble_html")
     workflow.add_edge("assemble_html", "save_posts")
-    workflow.add_edge("save_posts", END)
+    workflow.add_edge("save_posts", "push_drafts_to_blogger")
+    workflow.add_edge("push_drafts_to_blogger", END)
     
     return workflow.compile()
 
