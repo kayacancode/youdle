@@ -7,7 +7,7 @@ import os
 import sys
 import json
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 try:
@@ -16,70 +16,14 @@ try:
 except ImportError:
     pass
 
-try:
-    import pytz
-except ImportError:
-    pytz = None
-    print("Warning: pytz not installed. Using UTC times.")
-
 from supabase import create_client, Client
 
 
 # ============================================================================
-# DATE UTILITIES (copied from check_blog_status.py for consistency)
+# DATE UTILITIES (imported from check_blog_status.py for consistency)
 # ============================================================================
 
-def get_chicago_timezone():
-    """Get Chicago timezone object."""
-    if pytz:
-        return pytz.timezone('America/Chicago')
-    return None
-
-
-def get_week_start_date() -> datetime:
-    """
-    Get the most recent Tuesday at 9 AM CST (when blog generation runs).
-
-    This defines the start of "this week's" blog posts.
-
-    Returns:
-        datetime: Start of current week in UTC
-    """
-    tz = get_chicago_timezone()
-
-    if tz:
-        now = datetime.now(tz)
-    else:
-        # Fallback: assume UTC and subtract 6 hours for CST approximation
-        now = datetime.utcnow()
-
-    # Find the most recent Tuesday
-    # weekday(): Monday=0, Tuesday=1, Wednesday=2, Thursday=3, etc.
-    days_since_tuesday = (now.weekday() - 1) % 7
-
-    # If it's Tuesday but before 9 AM, use last Tuesday
-    if days_since_tuesday == 0:
-        if tz:
-            local_hour = now.hour
-        else:
-            local_hour = now.hour - 6  # Rough CST approximation
-        if local_hour < 9:
-            days_since_tuesday = 7
-
-    # Calculate the Tuesday date
-    tuesday = now - timedelta(days=days_since_tuesday)
-
-    # Set to 9 AM
-    if tz:
-        tuesday = tuesday.replace(hour=9, minute=0, second=0, microsecond=0)
-        # Convert to UTC for database query
-        tuesday_utc = tuesday.astimezone(pytz.UTC)
-    else:
-        # Approximate: 9 AM CST = 15:00 UTC
-        tuesday = tuesday.replace(hour=15, minute=0, second=0, microsecond=0)
-        tuesday_utc = tuesday
-
-    return tuesday_utc
+from check_blog_status import get_week_start_date
 
 
 # ============================================================================
@@ -111,10 +55,11 @@ def fetch_published_posts(supabase: Client, week_start: datetime) -> List[Dict[s
     """
     Query Supabase for this week's published blog posts.
 
-    A post is considered "published" if:
-    1. created_at >= week_start
-    2. status == 'published'
-    3. blogger_url is set (actually published to Blogger)
+    A post is considered "published this week" if:
+    1. status == 'published'
+    2. blogger_url is set (confirmed LIVE on Blogger)
+    3. blogger_published_at >= week_start (actually published this week,
+       not an old import from Blogger sync)
 
     Args:
         supabase: Supabase client
@@ -126,15 +71,11 @@ def fetch_published_posts(supabase: Client, week_start: datetime) -> List[Dict[s
     week_start_iso = week_start.isoformat()
 
     try:
-        # Query for published posts with blogger_url
-        # Note: blog_posts table columns are: id, title, category, status,
-        # blogger_url, blogger_post_id, article_url, html_content, image_url,
-        # created_at, updated_at, job_id, last_synced_at, blogger_published_at
         result = supabase.table("blog_posts").select(
             "id, title, category, status, blogger_url, blogger_post_id, "
-            "article_url, image_url, created_at, updated_at"
+            "article_url, image_url, blogger_published_at, created_at, updated_at"
         ).gte(
-            "created_at", week_start_iso
+            "blogger_published_at", week_start_iso
         ).eq(
             "status", "published"
         ).not_.is_(
