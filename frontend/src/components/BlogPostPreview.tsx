@@ -34,20 +34,21 @@ interface BlogPostPreviewProps {
 function getSyncStatus(post: BlogPost): { status: 'synced' | 'issue' | 'not_published', label: string, color: string } {
   const hasPublishedStatus = post.status === 'published'
   const hasBloggerUrl = !!post.blogger_url
+  const hasBloggerId = !!post.blogger_post_id
 
-  if (hasPublishedStatus && !hasBloggerUrl) {
-    return {
-      status: 'issue',
-      label: 'Sync Issue',
-      color: 'bg-amber-100 text-amber-700 border-amber-200'
-    }
-  }
-
-  if (hasBloggerUrl) {
+  if (hasBloggerUrl || (hasPublishedStatus && hasBloggerId)) {
     return {
       status: 'synced',
       label: 'Synced',
       color: 'bg-emerald-100 text-emerald-700 border-emerald-200'
+    }
+  }
+
+  if (hasPublishedStatus && !hasBloggerId) {
+    return {
+      status: 'issue',
+      label: 'Sync Issue',
+      color: 'bg-amber-100 text-amber-700 border-amber-200'
     }
   }
 

@@ -46,9 +46,11 @@ def get_chicago_timezone():
 
 def get_week_start_date() -> datetime:
     """
-    Get the most recent Tuesday at 9 AM CST (when blog generation runs).
+    Get the most recent Tuesday at midnight CST.
 
     This defines the start of "this week's" blog posts.
+    Uses midnight to capture all posts generated on Tuesday,
+    including those created before the 9 AM generation job.
 
     Returns:
         datetime: Start of current week in UTC
@@ -65,26 +67,19 @@ def get_week_start_date() -> datetime:
     # weekday(): Monday=0, Tuesday=1, Wednesday=2, Thursday=3, etc.
     days_since_tuesday = (now.weekday() - 1) % 7
 
-    # If it's Tuesday but before 9 AM, use last Tuesday
-    if days_since_tuesday == 0:
-        if tz:
-            local_hour = now.hour
-        else:
-            local_hour = now.hour - 6  # Rough CST approximation
-        if local_hour < 9:
-            days_since_tuesday = 7
+    # If it's Tuesday before midnight has passed, that's today (days_since=0), which is fine
 
     # Calculate the Tuesday date
     tuesday = now - timedelta(days=days_since_tuesday)
 
-    # Set to 9 AM
+    # Set to midnight (start of day)
     if tz:
-        tuesday = tuesday.replace(hour=9, minute=0, second=0, microsecond=0)
+        tuesday = tuesday.replace(hour=0, minute=0, second=0, microsecond=0)
         # Convert to UTC for database query
         tuesday_utc = tuesday.astimezone(pytz.UTC)
     else:
-        # Approximate: 9 AM CST = 15:00 UTC
-        tuesday = tuesday.replace(hour=15, minute=0, second=0, microsecond=0)
+        # Approximate: midnight CST = 06:00 UTC
+        tuesday = tuesday.replace(hour=6, minute=0, second=0, microsecond=0)
         tuesday_utc = tuesday
 
     return tuesday_utc
@@ -171,17 +166,22 @@ def check_publish_status(supabase: Optional[Client] = None) -> Dict[str, Any]:
             }
 
     week_start = get_week_start_date()
+    week_start_iso = week_start.isoformat()
     posts = get_this_weeks_posts(supabase, week_start)
 
     # Count totals
     total_posts = len(posts)
 
-    # A post is considered "published" if:
-    # 1. status == 'published' AND
-    # 2. blogger_url is set (actually published to Blogger)
+    # A post counts as "published this week" if:
+    # 1. status == 'published' AND blogger_url is set (confirmed LIVE on Blogger)
+    # 2. blogger_published_at falls within this week's window
+    #    (filters out old Blogger posts imported during sync)
     published_posts = [
         p for p in posts
-        if p.get('status') == 'published' and p.get('blogger_url')
+        if p.get('status') == 'published'
+        and p.get('blogger_url')
+        and p.get('blogger_published_at')
+        and p['blogger_published_at'] >= week_start_iso
     ]
 
     # Count by category
