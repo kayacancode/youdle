@@ -581,8 +581,8 @@ async def schedule_newsletter(newsletter_id: str):
 
         nl = newsletter.data
 
-        if nl["status"] != "draft":
-            raise HTTPException(status_code=400, detail="Only draft newsletters can be scheduled")
+        if nl["status"] not in ("draft", "failed"):
+            raise HTTPException(status_code=400, detail="Only draft or failed newsletters can be scheduled")
 
         # Create Mailchimp campaign
         mailchimp = MailchimpCampaign()
