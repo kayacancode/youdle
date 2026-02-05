@@ -129,9 +129,13 @@ def get_this_weeks_posts(supabase: Client, week_start: datetime) -> List[Dict[st
     week_start_iso = week_start.isoformat()
 
     try:
+        # Include posts created this week OR published to Blogger this week
+        # This catches older drafts that were published after the week started
         result = supabase.table("blog_posts").select(
-            "id, title, category, status, blogger_url, blogger_post_id, created_at"
-        ).gte("created_at", week_start_iso).execute()
+            "id, title, category, status, blogger_url, blogger_post_id, blogger_published_at, created_at"
+        ).or_(
+            f"created_at.gte.{week_start_iso},blogger_published_at.gte.{week_start_iso}"
+        ).execute()
 
         return result.data or []
     except Exception as e:
