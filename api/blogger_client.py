@@ -133,7 +133,9 @@ class BloggerClient:
         # First get the existing post
         existing = service.posts().get(
             blogId=self.blog_id,
-            postId=blogger_post_id
+            postId=blogger_post_id,
+            # Draft posts may return 404 unless fetched with an admin view.
+            view="ADMIN"
         ).execute()
 
         # Update only provided fields
@@ -264,7 +266,9 @@ class BloggerClient:
         try:
             response = service.posts().get(
                 blogId=self.blog_id,
-                postId=blogger_post_id
+                postId=blogger_post_id,
+                # Draft posts may return 404 unless fetched with an admin view.
+                view="ADMIN"
             ).execute()
             return response
 
@@ -289,7 +293,9 @@ class BloggerClient:
         try:
             response = service.posts().get(
                 blogId=self.blog_id,
-                postId=blogger_post_id
+                postId=blogger_post_id,
+                # Draft posts may return 404 unless fetched with an admin view.
+                view="ADMIN"
             ).execute()
             return response
 
