@@ -14,7 +14,9 @@ import {
   Loader2,
   BarChart3,
   RotateCcw,
-  RefreshCw
+  RefreshCw,
+  Pencil,
+  Check
 } from 'lucide-react'
 import { cn, formatDate, getStatusColor } from '@/lib/utils'
 import type { Newsletter } from '@/lib/api'
@@ -28,10 +30,12 @@ interface NewsletterCardProps {
   onRetry: () => void
   onSyncStats: () => void
   onDelete: () => void
+  onUpdateSubject: (subject: string) => void
   isScheduling?: boolean
   isSending?: boolean
   isRetrying?: boolean
   isSyncingStats?: boolean
+  isUpdating?: boolean
 }
 
 export function NewsletterCard({
@@ -43,12 +47,16 @@ export function NewsletterCard({
   onRetry,
   onSyncStats,
   onDelete,
+  onUpdateSubject,
   isScheduling,
   isSending,
   isRetrying,
   isSyncingStats,
+  isUpdating,
 }: NewsletterCardProps) {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
+  const [isEditingSubject, setIsEditingSubject] = useState(false)
+  const [editedSubject, setEditedSubject] = useState(newsletter.subject)
 
   const statusConfig = {
     draft: { icon: Mail, color: 'text-stone-600', bgColor: 'bg-stone-100' },
@@ -84,9 +92,63 @@ export function NewsletterCard({
         <h3 className="text-lg font-semibold text-stone-900 line-clamp-1">
           {newsletter.title}
         </h3>
-        <p className="text-sm text-stone-500 line-clamp-1 mt-1">
-          Subject: {newsletter.subject}
-        </p>
+
+        {newsletter.status === 'draft' && isEditingSubject ? (
+          <div className="flex items-center gap-2 mt-1">
+            <input
+              type="text"
+              value={editedSubject}
+              onChange={(e) => setEditedSubject(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  onUpdateSubject(editedSubject)
+                  setIsEditingSubject(false)
+                }
+                if (e.key === 'Escape') {
+                  setEditedSubject(newsletter.subject)
+                  setIsEditingSubject(false)
+                }
+              }}
+              autoFocus
+              className="flex-1 text-sm px-2 py-1 rounded-lg border border-stone-300 focus:border-youdle-500 focus:ring-1 focus:ring-youdle-500 outline-none"
+            />
+            <button
+              onClick={() => {
+                onUpdateSubject(editedSubject)
+                setIsEditingSubject(false)
+              }}
+              disabled={isUpdating || editedSubject === newsletter.subject}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-youdle-100 text-youdle-700 hover:bg-youdle-200 transition-all disabled:opacity-50"
+            >
+              {isUpdating ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Check className="w-3 h-3" />
+              )}
+              Save
+            </button>
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "flex items-center gap-1.5 mt-1 group",
+              newsletter.status === 'draft' && "cursor-pointer"
+            )}
+            onClick={() => {
+              if (newsletter.status === 'draft') {
+                setEditedSubject(newsletter.subject)
+                setIsEditingSubject(true)
+              }
+            }}
+          >
+            <p className="text-sm text-stone-500 line-clamp-1">
+              Subject: {newsletter.subject}
+            </p>
+            {newsletter.status === 'draft' && (
+              <Pencil className="w-3 h-3 text-stone-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+            )}
+          </div>
+        )}
       </div>
 
       {/* Posts Preview */}

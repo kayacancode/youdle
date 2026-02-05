@@ -491,9 +491,13 @@ class MailchimpCampaign:
             }
         
         try:
+            # mailchimp3 SDK expects a datetime object with UTC tzinfo
+            from datetime import timezone
+            if schedule_time.tzinfo is None:
+                schedule_time = schedule_time.replace(tzinfo=timezone.utc)
             self.client.campaigns.actions.schedule(
                 campaign_id,
-                {"schedule_time": schedule_time.isoformat()}
+                {"schedule_time": schedule_time}
             )
             return {
                 "success": True,

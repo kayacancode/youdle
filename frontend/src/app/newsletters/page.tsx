@@ -34,6 +34,7 @@ export default function NewslettersPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false)
   const [isAudienceDropdownOpen, setIsAudienceDropdownOpen] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   // Fetch audiences from Mailchimp
   const { data: audiencesData, isLoading: audiencesLoading } = useQuery({
@@ -71,12 +72,31 @@ export default function NewslettersPage() {
 
   const scheduleMutation = useMutation({
     mutationFn: (id: string) => api.scheduleNewsletter(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['newsletters'] }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['newsletters'] })
+      const scheduledFor = data.scheduled_for
+        ? new Date(data.scheduled_for).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' })
+        : 'Thursday 9 AM CST'
+      setToast({ message: `Newsletter scheduled for ${scheduledFor}`, type: 'success' })
+      setTimeout(() => setToast(null), 5000)
+    },
+    onError: (error: Error) => {
+      setToast({ message: `Failed to schedule: ${error.message}`, type: 'error' })
+      setTimeout(() => setToast(null), 5000)
+    },
   })
 
   const sendMutation = useMutation({
     mutationFn: (id: string) => api.sendNewsletter(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['newsletters'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['newsletters'] })
+      setToast({ message: 'Newsletter sent successfully!', type: 'success' })
+      setTimeout(() => setToast(null), 5000)
+    },
+    onError: (error: Error) => {
+      setToast({ message: `Failed to send: ${error.message}`, type: 'error' })
+      setTimeout(() => setToast(null), 5000)
+    },
   })
 
   const unscheduleMutation = useMutation({
@@ -91,6 +111,12 @@ export default function NewslettersPage() {
 
   const syncStatsMutation = useMutation({
     mutationFn: (id: string) => api.syncNewsletterStats(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['newsletters'] }),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, subject }: { id: string; subject: string }) =>
+      api.updateNewsletter(id, { subject }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['newsletters'] }),
   })
 
@@ -113,6 +139,23 @@ export default function NewslettersPage() {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={cn(
+          'fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg border animate-fade-in flex items-center gap-2',
+          toast.type === 'success'
+            ? 'bg-green-50 border-green-200 text-green-800'
+            : 'bg-red-50 border-red-200 text-red-800'
+        )}>
+          {toast.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+          ) : (
+            <XCircle className="w-4 h-4 flex-shrink-0" />
+          )}
+          <p className="font-medium">{toast.message}</p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -261,10 +304,12 @@ export default function NewslettersPage() {
               onRetry={() => retryMutation.mutate(newsletter.id)}
               onSyncStats={() => syncStatsMutation.mutate(newsletter.id)}
               onDelete={() => deleteMutation.mutate(newsletter.id)}
+              onUpdateSubject={(subject) => updateMutation.mutate({ id: newsletter.id, subject })}
               isScheduling={scheduleMutation.isPending}
               isSending={sendMutation.isPending}
               isRetrying={retryMutation.isPending}
               isSyncingStats={syncStatsMutation.isPending}
+              isUpdating={updateMutation.isPending}
             />
           ))}
         </div>
