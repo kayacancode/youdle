@@ -1036,14 +1036,12 @@ async def sync_with_blogger_light():
                 "last_synced_at": datetime.utcnow().isoformat()
             }
 
-            # Fix status mismatches
-            if is_live and db_post.get("status") != "published":
-                update_data["status"] = "published"
+            # Sync status from Blogger to local
+            if is_live:
                 update_data["blogger_url"] = blogger_post.get("url")
                 update_data["blogger_published_at"] = blogger_post.get("published")
-            elif not is_live and db_post.get("status") == "published":
-                update_data["blogger_url"] = None
-                update_data["blogger_published_at"] = None
+                if db_post.get("status") != "published":
+                    update_data["status"] = "published"
 
             # Timestamp-aware content sync
             blogger_updated_str = blogger_post.get("updated")
