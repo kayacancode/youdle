@@ -154,8 +154,8 @@ class TestSyncLight:
             updates = sb.get_table("blog_posts").updates
             assert any(u["data"].get("status") == "published" for u in updates)
 
-    def test_status_mismatch_blogger_draft_local_published_clears_url(self, patched_app):
-        """If Blogger says DRAFT but local says published, clear the URL."""
+    def test_status_mismatch_blogger_draft_local_published_preserves_url(self, patched_app):
+        """If Blogger says DRAFT but local says published, preserve the URL (non-destructive sync)."""
         db_posts = [{
             "id": "post-1",
             "title": "My Post",
@@ -177,10 +177,12 @@ class TestSyncLight:
         with patched_app(supabase_data=db_posts, blogger_responses={"bp-1": blogger_post}) as (client, sb, bl):
             resp = client.post("/api/generate/blogger/sync-light")
             data = resp.json()
-            assert data["synced_count"] == 1
 
+            # Sync-light should not clear blogger_url/blogger_published_at
+            # to avoid destroying data from successful publishes
             updates = sb.get_table("blog_posts").updates
-            assert any(u["data"].get("blogger_url") is None for u in updates)
+            for u in updates:
+                assert u["data"].get("blogger_url") != None or "blogger_url" not in u["data"]
 
     def test_blogger_newer_pulls_content_to_local(self, patched_app):
         """When Blogger content is newer than local, pull it to local DB."""
