@@ -467,14 +467,26 @@ async def publish_post_to_blogger(post_id: str):
 
         # If post has blogger_post_id but no URL, it's a draft - re-publish it
         if post.get("blogger_post_id"):
-            # First update the draft with current content, then publish
-            blogger.update_post(
-                blogger_post_id=post["blogger_post_id"],
-                title=post["title"],
-                html_content=post["html_content"],
-                labels=labels
-            )
-            blogger_result = blogger.publish_draft(post["blogger_post_id"])
+            try:
+                # First update the draft with current content, then publish
+                blogger.update_post(
+                    blogger_post_id=post["blogger_post_id"],
+                    title=post["title"],
+                    html_content=post["html_content"],
+                    labels=labels
+                )
+                blogger_result = blogger.publish_draft(post["blogger_post_id"])
+            except Exception as draft_err:
+                # If the Blogger post no longer exists (404), create a new one
+                if "404" in str(draft_err) or "Not Found" in str(draft_err):
+                    blogger_result = blogger.publish_post(
+                        title=post["title"],
+                        html_content=post["html_content"],
+                        labels=labels,
+                        is_draft=False
+                    )
+                else:
+                    raise
         else:
             # Create new post on Blogger
             blogger_result = blogger.publish_post(
