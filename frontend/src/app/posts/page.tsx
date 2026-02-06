@@ -218,6 +218,7 @@ export default function PostsPage() {
             {syncWithBloggerMutation.isPending ? 'Syncing...' : 'Sync with Blogger'}
           </button>
           */}
+          {/* Delete All button - temporarily disabled
           {posts && posts.length > 0 && (
             <button
               onClick={handleDeleteAll}
@@ -232,6 +233,7 @@ export default function PostsPage() {
               Delete All
             </button>
           )}
+          */}
         </div>
       </div>
 
