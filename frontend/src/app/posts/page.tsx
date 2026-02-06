@@ -101,7 +101,9 @@ export default function PostsPage() {
     }
   })
 
-  // Auto-sync with Blogger on page load (lightweight, no full list fetch)
+  // Auto-sync with Blogger on page load - temporarily disabled
+  // Dashboard is now the source of truth; drafts auto-create on Blogger, publish/delete still sync
+  /*
   const hasAutoSynced = useRef(false)
   useEffect(() => {
     if (!hasAutoSynced.current) {
@@ -123,6 +125,7 @@ export default function PostsPage() {
         })
     }
   }, [queryClient]) // eslint-disable-line react-hooks/exhaustive-deps
+  */
 
   const handleStatusChange = (postId: string, status: string) => {
     updateStatusMutation.mutate({ postId, status })
