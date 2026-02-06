@@ -204,6 +204,7 @@ export default function PostsPage() {
           )}
         </div>
         <div className="flex items-center gap-3">
+          {/* Sync with Blogger button - temporarily disabled
           <button
             onClick={() => syncWithBloggerMutation.mutate()}
             disabled={syncWithBloggerMutation.isPending}
@@ -216,6 +217,7 @@ export default function PostsPage() {
             )}
             {syncWithBloggerMutation.isPending ? 'Syncing...' : 'Sync with Blogger'}
           </button>
+          */}
           {posts && posts.length > 0 && (
             <button
               onClick={handleDeleteAll}
