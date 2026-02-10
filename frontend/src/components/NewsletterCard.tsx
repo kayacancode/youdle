@@ -16,7 +16,8 @@ import {
   RotateCcw,
   RefreshCw,
   Pencil,
-  Check
+  Check,
+  Users
 } from 'lucide-react'
 import { cn, formatDate, getStatusColor } from '@/lib/utils'
 import type { Newsletter } from '@/lib/api'
@@ -36,6 +37,7 @@ interface NewsletterCardProps {
   isRetrying?: boolean
   isSyncingStats?: boolean
   isUpdating?: boolean
+  currentAudience?: { id: string; name: string; member_count: number } | null
 }
 
 export function NewsletterCard({
@@ -53,6 +55,7 @@ export function NewsletterCard({
   isRetrying,
   isSyncingStats,
   isUpdating,
+  currentAudience,
 }: NewsletterCardProps) {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [isEditingSubject, setIsEditingSubject] = useState(false)
@@ -224,9 +227,26 @@ export function NewsletterCard({
       {/* Scheduled info */}
       {newsletter.status === 'scheduled' && newsletter.scheduled_for && (
         <div className="p-4 border-t border-stone-200 bg-blue-50">
-          <div className="flex items-center gap-2 text-sm text-blue-700">
-            <Calendar className="w-4 h-4" />
-            <span>Scheduled for {formatDate(newsletter.scheduled_for)}</span>
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm text-blue-700">
+                <Calendar className="w-4 h-4" />
+                <span>Scheduled for {formatDate(newsletter.scheduled_for)}</span>
+              </div>
+              {currentAudience && (
+                <div className="flex items-center gap-2 text-xs text-blue-600">
+                  <Users className="w-3 h-3" />
+                  <span>Sending to {currentAudience.name} ({currentAudience.member_count.toLocaleString()})</span>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={onUnschedule}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-all"
+            >
+              <X className="w-3 h-3" />
+              Cancel
+            </button>
           </div>
         </div>
       )}
@@ -237,6 +257,18 @@ export function NewsletterCard({
           <div className="flex items-center gap-2 text-sm text-red-700">
             <XCircle className="w-4 h-4" />
             <span className="line-clamp-2">{newsletter.error}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Audience info for draft newsletters */}
+      {newsletter.status === 'draft' && currentAudience && (
+        <div className="px-4 py-3 border-t border-stone-200 bg-purple-50">
+          <div className="flex items-center gap-2 text-sm text-purple-700">
+            <Users className="w-4 h-4" />
+            <span>
+              Will send to <strong>{currentAudience.name}</strong> ({currentAudience.member_count.toLocaleString()} subscribers)
+            </span>
           </div>
         </div>
       )}
@@ -281,15 +313,7 @@ export function NewsletterCard({
             </>
           )}
 
-          {newsletter.status === 'scheduled' && (
-            <button
-              onClick={onUnschedule}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 transition-all"
-            >
-              <X className="w-3 h-3" />
-              Unschedule
-            </button>
-          )}
+          {/* Unschedule button moved to scheduled info banner above */}
 
           {newsletter.status === 'failed' && (
             <button

@@ -310,6 +310,7 @@ export default function NewslettersPage() {
               isRetrying={retryMutation.isPending}
               isSyncingStats={syncStatsMutation.isPending}
               isUpdating={updateMutation.isPending}
+              currentAudience={currentAudience}
             />
           ))}
         </div>
