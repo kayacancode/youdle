@@ -11,7 +11,8 @@ import {
   Settings,
   Activity,
   Mail,
-  Image as ImageIcon
+  Image as ImageIcon,
+  PlayCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -23,6 +24,7 @@ const navigation = [
   { name: 'Newsletters', href: '/newsletters', icon: Mail },
   { name: 'Review', href: '/review', icon: CheckSquare },
   { name: 'Jobs', href: '/jobs', icon: Activity },
+  { name: 'Actions', href: '/actions', icon: PlayCircle },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 

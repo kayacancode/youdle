@@ -180,6 +180,67 @@ export interface MediaListResponse {
   total: number
 }
 
+// GitHub Actions types
+export interface WorkflowInput {
+  name: string
+  description: string | null
+  required: boolean
+  default: string | null
+  type: 'string' | 'boolean' | 'choice'
+  options: string[] | null
+}
+
+export interface Workflow {
+  id: number
+  name: string
+  path: string
+  state: string
+  created_at: string
+  updated_at: string
+  html_url: string
+  badge_url: string
+  schedule: string | null
+  inputs: WorkflowInput[]
+}
+
+export interface WorkflowRun {
+  id: number
+  name: string
+  workflow_id: number
+  status: 'queued' | 'in_progress' | 'completed'
+  conclusion: 'success' | 'failure' | 'cancelled' | 'skipped' | null
+  event: string
+  created_at: string
+  updated_at: string
+  run_started_at: string | null
+  html_url: string
+  actor: string | null
+  run_number: number
+  duration_seconds: number | null
+}
+
+export interface WorkflowListResponse {
+  workflows: Workflow[]
+}
+
+export interface WorkflowRunListResponse {
+  runs: WorkflowRun[]
+  total_count: number
+}
+
+export interface TriggerWorkflowRequest {
+  ref?: string
+  inputs?: Record<string, string | boolean>
+}
+
+export interface ActionsStatus {
+  configured: boolean
+  owner?: string
+  repo?: string
+  workflow_count?: number
+  error?: string
+}
+
 // API Client class
 class ApiClient {
   private baseUrl: string
@@ -501,6 +562,59 @@ class ApiClient {
 
   async getMedia(mediaId: string): Promise<MediaItem> {
     return this.request(`/api/media/${mediaId}`)
+  }
+
+  // GitHub Actions
+  async getActionsStatus(): Promise<ActionsStatus> {
+    return this.request('/api/actions/status')
+  }
+
+  async listWorkflows(): Promise<WorkflowListResponse> {
+    return this.request('/api/actions/workflows')
+  }
+
+  async listWorkflowRuns(
+    workflowId: number,
+    params: { status?: string; limit?: number } = {}
+  ): Promise<WorkflowRunListResponse> {
+    const queryParams = new URLSearchParams()
+    if (params.status) queryParams.set('status', params.status)
+    if (params.limit) queryParams.set('limit', String(params.limit))
+    const query = queryParams.toString()
+    return this.request(`/api/actions/workflows/${workflowId}/runs${query ? `?${query}` : ''}`)
+  }
+
+  async listAllWorkflowRuns(params: { status?: string; limit?: number } = {}): Promise<WorkflowRunListResponse> {
+    const queryParams = new URLSearchParams()
+    if (params.status) queryParams.set('status', params.status)
+    if (params.limit) queryParams.set('limit', String(params.limit))
+    const query = queryParams.toString()
+    return this.request(`/api/actions/runs${query ? `?${query}` : ''}`)
+  }
+
+  async triggerWorkflow(workflowId: number, data: TriggerWorkflowRequest = {}): Promise<{ message: string; workflow_id: number; ref: string }> {
+    return this.request(`/api/actions/workflows/${workflowId}/dispatch`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async cancelWorkflowRun(runId: number): Promise<{ message: string; run_id: number }> {
+    return this.request(`/api/actions/runs/${runId}/cancel`, {
+      method: 'POST',
+    })
+  }
+
+  async enableWorkflow(workflowId: number): Promise<{ message: string; workflow_id: number }> {
+    return this.request(`/api/actions/workflows/${workflowId}/enable`, {
+      method: 'PUT',
+    })
+  }
+
+  async disableWorkflow(workflowId: number): Promise<{ message: string; workflow_id: number }> {
+    return this.request(`/api/actions/workflows/${workflowId}/disable`, {
+      method: 'PUT',
+    })
   }
 }
 
