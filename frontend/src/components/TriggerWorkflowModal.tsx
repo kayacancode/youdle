@@ -56,12 +56,12 @@ export function TriggerWorkflowModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+    <div className="fixed top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center overflow-y-auto p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed top-0 left-0 right-0 bottom-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden ring-1 ring-black/10">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden ring-1 ring-black/10 my-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-stone-200">
           <h2 className="text-lg font-semibold text-stone-900">Run {workflow.name}</h2>
