@@ -292,7 +292,7 @@ class SupabaseStorage:
                 "created_at": datetime.now().isoformat()
             }
             
-            result = self.client.table("blog_feedback").insert(data).execute()
+            result = self.client.table("feedback").insert(data).execute()
             
             return {
                 "success": True,
@@ -324,14 +324,15 @@ class SupabaseStorage:
         try:
             # This would ideally be a more complex query
             # For now, get recent feedback and analyze
-            query = self.client.table("blog_feedback").select("*")
+            query = self.client.table("feedback").select("*")
             
             result = query.order("created_at", desc=True).limit(100).execute()
             
             # Group by feedback_type and count
+            # Note: frontend stores "rating"/"comment", backend historically used "score"/"comments"/"feedback_type"
             patterns = {}
             for feedback in result.data or []:
-                ftype = feedback.get("feedback_type", "unknown")
+                ftype = feedback.get("feedback_type", feedback.get("type", "general"))
                 if ftype not in patterns:
                     patterns[ftype] = {
                         "type": ftype,
@@ -340,9 +341,10 @@ class SupabaseStorage:
                         "comments": []
                     }
                 patterns[ftype]["count"] += 1
-                patterns[ftype]["avg_score"] += feedback.get("score", 0)
-                if feedback.get("comments"):
-                    patterns[ftype]["comments"].append(feedback["comments"])
+                patterns[ftype]["avg_score"] += feedback.get("score", feedback.get("rating", 0))
+                comment_text = feedback.get("comments", feedback.get("comment", ""))
+                if comment_text:
+                    patterns[ftype]["comments"].append(comment_text)
             
             # Calculate averages and filter by min_count
             result_patterns = []

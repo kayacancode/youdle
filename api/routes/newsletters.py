@@ -429,6 +429,17 @@ async def create_newsletter(data: NewsletterCreate):
         if supabase is None:
             raise HTTPException(status_code=503, detail="Database not configured")
 
+        # Filter out posts already used in other newsletters (Bug #861 - prevent duplicates)
+        used_posts_result = supabase.table("newsletter_posts").select("blog_post_id").execute()
+        used_post_ids = set(p["blog_post_id"] for p in (used_posts_result.data or []))
+        filtered_post_ids = [pid for pid in data.post_ids if pid not in used_post_ids]
+
+        if not filtered_post_ids:
+            raise HTTPException(status_code=400, detail="All selected posts are already in existing newsletters")
+
+        # Use filtered list going forward
+        data.post_ids = filtered_post_ids
+
         # Generate default title and subject if not provided
         date_str = datetime.now().strftime("%B %d, %Y")
         title = data.title or f"Weekly Newsletter - {date_str}"
