@@ -687,18 +687,6 @@ def assemble_html_node(state: BlogPostState) -> Dict[str, Any]:
         final_html = final_html.replace("{{IMAGE_HERE}}", image_url)
         final_html = final_html.replace("{original_link}", original_link)
 
-        # Add navigation header linking back to main blog page (Issue #848)
-        # Also add explicit author/location byline to override Blogger profile (Issue #847)
-        nav_header = (
-            '<div style="margin-bottom:20px;padding:10px 0;border-bottom:1px solid #e5e5e5;">'
-            '<a href="https://getyoudle.com/blog" '
-            'style="color:#2563eb;text-decoration:none;font-size:14px;font-weight:500;">'
-            '← Back to Youdle Blog</a>'
-            '<span style="float:right;font-size:13px;color:#6b7280;">Youdle · Memphis, TN</span>'
-            '</div>'
-        )
-        final_html = nav_header + final_html
-
         final_post = {
             "post_id": post_id,
             "html": final_html,
