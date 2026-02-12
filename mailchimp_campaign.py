@@ -715,10 +715,16 @@ def create_newsletter_campaign(
         recall_articles=recall_posts
     )
     
-    # Create subject if not provided
+    # Create subject if not provided — use content-driven headline
     if not subject:
-        date_str = datetime.now().strftime("%B %d, %Y")
-        subject = f"🛒 Youdle Weekly: Your Grocery Insights for {date_str}"
+        all_titles = [p.get("title", "") for p in posts if p.get("title")]
+        if all_titles:
+            lead = all_titles[0][:60]
+            remaining = len(all_titles) - 1
+            subject = f"{lead} + {remaining} more stories this week" if remaining > 0 else lead
+        else:
+            date_str = datetime.now().strftime("%B %d, %Y")
+            subject = f"🛒 Youdle Weekly - {date_str}"
     
     # Create campaign
     result = mailchimp.create_campaign(

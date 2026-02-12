@@ -43,14 +43,11 @@ Youdle has three core features you should naturally reference:
    IMPORTANT: Use the LITERAL text "{{{{IMAGE_HERE}}}}" as the src value. Do NOT replace it with any URL.
 
 2. **Headline:** One <h2> tag using Zeigarnik gap formula. Sentence case only.
-   - IMPORTANT: The headline must be UNIQUE to this specific article's topic. Never reuse generic headlines like "This week in grocery news."
-   - The headline should reference the specific subject matter of the article.
-   - Do NOT repeat the headline text anywhere else in the article body.
+   - IMPORTANT: The headline must be UNIQUE to this specific article's topic. Never reuse generic headlines like "This week in grocery news" or "Youdle Weekly."
+   - The headline should reference the specific subject matter (e.g. "Ground beef prices skyrocketing — here's what smart shoppers are doing").
+   - NEVER repeat the headline text anywhere else in the article body. The <h2> appears exactly once.
 
-3. **Byline:** Add a small byline as a <p> tag with small/gray styling IMMEDIATELY after the <h2>:
-   `<p style="font-size:13px;color:#888;margin-top:-10px;">Youdle · [current date, e.g. February 12, 2026]</p>`
-   - This is ONLY a date stamp — do NOT repeat the headline or article title here.
-   - Do NOT include "Youdle - [date]" as plain text in the article body.
+3. **NO BYLINE:** Do NOT add any byline, date stamp, or "Youdle · [date]" line after the headline. Go straight from the <h2> headline to the opening paragraph.
 
 4. **Opening Paragraph:** Begin with "MEMPHIS, Tenn. (Youdle) –"
    - Start with "you" (speak TO reader)

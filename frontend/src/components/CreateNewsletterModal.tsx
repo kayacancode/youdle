@@ -57,7 +57,7 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
         year: 'numeric'
       })
       setTitle(`Weekly Newsletter - ${date}`)
-      setSubject(`Youdle Weekly: Your Grocery Insights for ${date}`)
+      setSubject('')  // Leave empty — backend auto-generates content-driven subject from article titles
     }
   }, [isOpen, title])
 
@@ -124,7 +124,7 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="Youdle Weekly: Your Grocery Insights"
+            placeholder="Auto-generated from article titles (or type your own)"
             className="w-full px-4 py-2 rounded-lg border border-stone-300 focus:ring-2 focus:ring-youdle-500 focus:border-youdle-500 outline-none transition-all"
           />
         </div>

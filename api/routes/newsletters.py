@@ -147,6 +147,20 @@ def get_newsletter_with_posts(supabase, newsletter_id: str) -> Optional[dict]:
     return newsletter
 
 
+def generate_content_driven_subject(post_titles: list) -> str:
+    """Generate a content-driven newsletter subject from article titles."""
+    if not post_titles:
+        date_str = datetime.now().strftime('%B %d, %Y')
+        return f'Youdle Weekly: Your Grocery Insights for {date_str}'
+    lead = post_titles[0]
+    if len(lead) > 60:
+        lead = lead[:57] + '...'
+    remaining = len(post_titles) - 1
+    if remaining > 0:
+        return f'{lead} + {remaining} more stories this week'
+    return lead
+
+
 def generate_newsletter_html(supabase, post_ids: List[str]) -> str:
     """
     Generate newsletter HTML from blog post IDs.
@@ -418,7 +432,14 @@ async def create_newsletter(data: NewsletterCreate):
         # Generate default title and subject if not provided
         date_str = datetime.now().strftime("%B %d, %Y")
         title = data.title or f"Weekly Newsletter - {date_str}"
-        subject = data.subject or f"Youdle Weekly: Your Grocery Insights for {date_str}"
+
+        # Auto-generate content-driven subject from post titles if not provided
+        if data.subject:
+            subject = data.subject
+        else:
+            post_titles_result = supabase.table("blog_posts").select("title").in_("id", data.post_ids).execute()
+            post_titles = [p["title"] for p in (post_titles_result.data or [])]
+            subject = generate_content_driven_subject(post_titles)
 
         # Generate HTML content
         html_content = generate_newsletter_html(supabase, data.post_ids)
@@ -850,7 +871,9 @@ async def queue_articles():
         # Create newsletter with available posts
         date_str = datetime.now().strftime("%B %d, %Y")
         title = f"Weekly Newsletter - {date_str}"
-        subject = f"Youdle Weekly: Your Grocery Insights for {date_str}"
+        post_titles_result = supabase.table("blog_posts").select("title").in_("id", available_post_ids).execute()
+        post_titles = [p["title"] for p in (post_titles_result.data or [])]
+        subject = generate_content_driven_subject(post_titles)
 
         html_content = generate_newsletter_html(supabase, available_post_ids)
 
@@ -967,7 +990,9 @@ async def publish_now_auto():
         # Create newsletter with available posts
         date_str = datetime.now().strftime("%B %d, %Y")
         title = f"Weekly Newsletter - {date_str}"
-        subject = f"Youdle Weekly: Your Grocery Insights for {date_str}"
+        post_titles_result = supabase.table("blog_posts").select("title").in_("id", available_post_ids).execute()
+        post_titles = [p["title"] for p in (post_titles_result.data or [])]
+        subject = generate_content_driven_subject(post_titles)
 
         html_content = generate_newsletter_html(supabase, available_post_ids)
 
@@ -1083,7 +1108,9 @@ async def auto_create_newsletter():
         # Create newsletter with available posts
         date_str = datetime.now().strftime("%B %d, %Y")
         title = f"Weekly Newsletter - {date_str}"
-        subject = f"Youdle Weekly: Your Grocery Insights for {date_str}"
+        post_titles_result = supabase.table("blog_posts").select("title").in_("id", available_post_ids).execute()
+        post_titles = [p["title"] for p in (post_titles_result.data or [])]
+        subject = generate_content_driven_subject(post_titles)
 
         html_content = generate_newsletter_html(supabase, available_post_ids)
 
@@ -1216,7 +1243,7 @@ async def check_auto_create_newsletter():
         if len(available_post_ids) >= 3:
             date_str = datetime.now().strftime("%B %d, %Y")
             title = f"Weekly Newsletter - {date_str}"
-            subject = f"Youdle Weekly: Your Grocery Insights for {date_str}"
+            subject = f"Youdle Weekly - {date_str}"
 
             html_content = generate_newsletter_html(supabase, available_post_ids)
 

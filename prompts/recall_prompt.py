@@ -65,9 +65,7 @@ Youdle has three core features you should naturally reference:
    Example: "Pepperidge Farm recalls Goldfish crackers over salmonella concerns"
    - Do NOT repeat the headline text anywhere else in the article body.
 
-3. **Byline:** Add a small byline as a <p> tag with small/gray styling IMMEDIATELY after the <h2>:
-   `<p style="font-size:13px;color:#888;margin-top:-10px;">Youdle · [current date, e.g. February 12, 2026]</p>`
-   - This is ONLY a date stamp — do NOT include the headline or title here.
+3. **NO BYLINE:** Do NOT add any byline, date stamp, or "Youdle · [date]" line after the headline. Go straight from the <h2> headline to the opening paragraph.
 
 4. **Opening Paragraph:** Begin with "MEMPHIS, Tenn. (Youdle) –"
    - What's being recalled
