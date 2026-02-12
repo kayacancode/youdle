@@ -204,10 +204,10 @@ def select_articles_node(state: BlogPostState) -> Dict[str, Any]:
     processed_urls = state.get("processed_urls", {})
     batch_size = state.get("batch_size", 6)
 
-    # Calculate article allocation: 1 recall + rest shoppers
-    # Ensure at least 1 recall if batch_size > 0
-    max_recall = 1 if batch_size > 0 else 0
-    max_shoppers = max(0, batch_size - max_recall)
+    # Calculate article allocation: up to 5 recall articles consolidated into 1 roundup + rest shoppers
+    # Recall articles are gathered but will be merged into a single roundup post during generation
+    max_recall = min(5, batch_size) if batch_size > 0 else 0
+    max_shoppers = max(0, batch_size - 1) if max_recall > 0 else batch_size  # reserve 1 slot for roundup
 
     items = search_results.get("items", [])
     recall_items = search_results.get("recall_items", [])
@@ -337,27 +337,79 @@ def generate_posts_node(state: BlogPostState) -> Dict[str, Any]:
         
         generated_posts = []
         
-        for article in articles_to_process:
-            category = article.get("category", "SHOPPERS").lower()
-            context = recall_context if category == "recall" else shoppers_context
+        # Separate recall and shoppers articles (Issue #860 - consolidate recalls into roundup)
+        recall_articles_to_process = [a for a in articles_to_process if a.get("category", "SHOPPERS").lower() == "recall"]
+        shoppers_articles_to_process = [a for a in articles_to_process if a.get("category", "SHOPPERS").lower() != "recall"]
+        
+        # Generate individual shoppers posts
+        for article in shoppers_articles_to_process:
+            context = shoppers_context
             
             result = generator.generate_with_reflection(
                 title=article.get("title", ""),
                 content=article.get("content", article.get("description", "")),
                 original_link=article.get("link", ""),
-                category=category,
+                category="shoppers",
                 good_examples=context.get("good_examples"),
                 bad_examples=context.get("bad_examples")
             )
             
             result["article"] = article
-            result["category"] = category
+            result["category"] = "shoppers"
             result["post_id"] = get_url_hash(article.get("link", ""))
             
             generated_posts.append(result)
             
             status = "✓" if result.get("success") else "✗"
             logs.append(f"  {status} {article.get('title', 'Unknown')[:50]}...")
+        
+        # Consolidate recall articles into a single weekly roundup (Issue #860)
+        if recall_articles_to_process:
+            logs.append(f"  Consolidating {len(recall_articles_to_process)} recall articles into weekly roundup...")
+            
+            # Build combined content for the roundup
+            combined_title = f"Weekly recall roundup: {len(recall_articles_to_process)} food safety alerts you need to know"
+            combined_content_parts = []
+            combined_links = []
+            for i, article in enumerate(recall_articles_to_process, 1):
+                combined_content_parts.append(
+                    f"RECALL {i}: {article.get('title', 'Unknown')}\n"
+                    f"{article.get('content', article.get('description', ''))}\n"
+                    f"Source: {article.get('link', '')}"
+                )
+                combined_links.append(article.get("link", ""))
+            
+            combined_content = "\n\n---\n\n".join(combined_content_parts)
+            # Use the first recall link as the primary, but all are embedded in content
+            primary_link = combined_links[0] if combined_links else ""
+            
+            # Create a merged article object for tracking
+            merged_article = {
+                "title": combined_title,
+                "content": combined_content,
+                "link": primary_link,
+                "category": "RECALL",
+                "is_roundup": True,
+                "source_articles": recall_articles_to_process,
+            }
+            
+            result = generator.generate_with_reflection(
+                title=combined_title,
+                content=combined_content,
+                original_link=primary_link,
+                category="recall",
+                good_examples=recall_context.get("good_examples"),
+                bad_examples=recall_context.get("bad_examples")
+            )
+            
+            result["article"] = merged_article
+            result["category"] = "recall"
+            result["post_id"] = get_url_hash(f"recall-roundup-{datetime.now().strftime('%Y-%W')}")
+            
+            generated_posts.append(result)
+            
+            status = "✓" if result.get("success") else "✗"
+            logs.append(f"  {status} Weekly Recall Roundup ({len(recall_articles_to_process)} recalls)")
         
         logs.append(f"Generated {len(generated_posts)} blog posts")
         
@@ -634,6 +686,18 @@ def assemble_html_node(state: BlogPostState) -> Dict[str, Any]:
         final_html = final_html.replace("{IMAGE_HERE}", image_url)
         final_html = final_html.replace("{{IMAGE_HERE}}", image_url)
         final_html = final_html.replace("{original_link}", original_link)
+
+        # Add navigation header linking back to main blog page (Issue #848)
+        # Also add explicit author/location byline to override Blogger profile (Issue #847)
+        nav_header = (
+            '<div style="margin-bottom:20px;padding:10px 0;border-bottom:1px solid #e5e5e5;">'
+            '<a href="https://getyoudle.com/blog" '
+            'style="color:#2563eb;text-decoration:none;font-size:14px;font-weight:500;">'
+            '← Back to Youdle Blog</a>'
+            '<span style="float:right;font-size:13px;color:#6b7280;">Youdle · Memphis, TN</span>'
+            '</div>'
+        )
+        final_html = nav_header + final_html
 
         final_post = {
             "post_id": post_id,

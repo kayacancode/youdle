@@ -42,13 +42,14 @@ export default function ReviewPage() {
     goToNext()
   }
 
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
+
   const handleSubmitReview = async (rating: number, comment: string, feedbackType: string) => {
     if (currentPost) {
       try {
         await addFeedback(currentPost.id, rating, comment)
-        // Mark as reviewed after feedback
-        updateStatusMutation.mutate({ postId: currentPost.id, status: 'reviewed' })
-        goToNext()
+        // Don't auto-approve or advance — let user approve/reject separately (Issue #858)
+        setFeedbackSubmitted(true)
       } catch (error) {
         console.error('Failed to submit feedback:', error)
       }
@@ -62,12 +63,14 @@ export default function ReviewPage() {
   const goToNext = () => {
     if (posts && currentIndex < posts.length - 1) {
       setCurrentIndex(currentIndex + 1)
+      setFeedbackSubmitted(false)
     }
   }
 
   const goToPrevious = () => {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1)
+      setFeedbackSubmitted(false)
     }
   }
 
@@ -138,17 +141,29 @@ export default function ReviewPage() {
 
           {/* Review Form */}
           <div className="space-y-4">
-            <ReviewForm
-              postId={currentPost.id}
-              postTitle={currentPost.title}
-              onSubmit={handleSubmitReview}
-              onSkip={handleSkip}
-            />
+            {feedbackSubmitted ? (
+              <div className="rounded-2xl bg-green-50 border border-green-200 p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <Check className="w-5 h-5 text-green-600" />
+                  <h3 className="text-lg font-semibold text-green-800">Feedback Submitted</h3>
+                </div>
+                <p className="text-sm text-green-700">
+                  Now approve or reject this post using the buttons below.
+                </p>
+              </div>
+            ) : (
+              <ReviewForm
+                postId={currentPost.id}
+                postTitle={currentPost.title}
+                onSubmit={handleSubmitReview}
+                onSkip={handleSkip}
+              />
+            )}
 
             {/* Quick Actions */}
             <div className="rounded-2xl bg-white border border-stone-200 p-4">
               <h4 className="text-sm font-medium text-midnight-700 mb-3">
-                Quick Actions
+                {feedbackSubmitted ? 'Now Approve or Reject' : 'Quick Actions'}
               </h4>
               <div className="grid grid-cols-2 gap-3">
                 <button

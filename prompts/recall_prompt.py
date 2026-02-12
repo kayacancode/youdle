@@ -10,7 +10,9 @@ from .base_guidelines import (
     STRUCTURE_RULES,
 )
 
-RECALL_BLOG_PROMPT = f"""Task: You are a Recall Lead Content Strategist for Youdle, a grocery insights platform with 33,000 members. Transform the provided recall article into a 400-600 word HTML newsletter section for U.S. grocery shoppers.
+RECALL_BLOG_PROMPT = f"""Task: You are a Recall Lead Content Strategist for Youdle, a grocery insights platform with 33,000 members. Transform the provided recall information into a 400-600 word HTML newsletter section for U.S. grocery shoppers.
+
+**IMPORTANT:** If the input contains MULTIPLE recalls (separated by "---"), create a single **Weekly Recall Roundup** article that covers ALL of them. Use a roundup headline like "X food safety alerts you need to know this week" and organize each recall as a clearly labeled section within one article.
 
 Youdle has three core features you should naturally reference:
 1. **Search** - Shows in-stock groceries at nearby stores with real-time prices, verify ingredients
@@ -61,10 +63,13 @@ Youdle has three core features you should naturally reference:
 
 2. **Headline:** One <h2> tag. Sentence case only. Include the product/brand and recall reason.
    Example: "Pepperidge Farm recalls Goldfish crackers over salmonella concerns"
+   - Do NOT repeat the headline text anywhere else in the article body.
 
-3. **Byline:** Include "Youdle - [current date]" after headline.
+3. **Byline:** Add a small byline as a <p> tag with small/gray styling IMMEDIATELY after the <h2>:
+   `<p style="font-size:13px;color:#888;margin-top:-10px;">Youdle · [current date, e.g. February 12, 2026]</p>`
+   - This is ONLY a date stamp — do NOT include the headline or title here.
 
-4. **Opening Paragraph:** Begin with "MEMPHIS, Tenn. (Youdle) -"
+4. **Opening Paragraph:** Begin with "MEMPHIS, Tenn. (Youdle) –"
    - What's being recalled
    - Why (contamination type)
    - Immediate risk level

@@ -268,7 +268,15 @@ async def get_published_posts_for_newsletter():
             "created_at", desc=True
         ).limit(50).execute()
 
-        return result.data if result.data else []
+        all_posts = result.data if result.data else []
+
+        # Filter out posts already in a newsletter (Bug #861 - prevent duplicates)
+        if all_posts:
+            used_posts_result = supabase.table("newsletter_posts").select("blog_post_id").execute()
+            used_post_ids = set(p["blog_post_id"] for p in (used_posts_result.data or []))
+            all_posts = [p for p in all_posts if p["id"] not in used_post_ids]
+
+        return all_posts
 
     except HTTPException:
         raise

@@ -30,20 +30,27 @@ except ImportError:
 DEFAULT_IMAGE_SIZE = "1K"  # Options: "1K", "2K", "4K"
 DEFAULT_ASPECT_RATIO = "16:9"
 
-IMAGE_PROMPT_TEMPLATE = """Create a retail-safe image for a grocery-focused newsletter titled "{title}".
+IMAGE_PROMPT_TEMPLATE = """Create a unique, eye-catching image for a grocery newsletter article titled "{title}".
 
 Theme/Context: {theme}
 
-Strictly follow these guidelines:
-- Professional grocery context
-- No humans; if present, only abstract silhouettes without facial features
-- No brand names or logos; show generic private-label packaging
-- English-only shelf labels; simple words and US dollar prices; all text sharp
-- No UI overlays; no out-of-focus text
-- Clean, modern, inviting grocery store aesthetic
-- Focus on the products/items mentioned in the article
+IMPORTANT — Make each image DISTINCT and specific to the article topic:
+- If the article is about coffee prices → show coffee beans, a coffee cup, or coffee bags
+- If it's about produce → show colorful fresh fruits and vegetables
+- If it's about a specific product → show that product type prominently
+- If it's about prices/inflation → show a shopping cart, price tags, or receipt
+- If it's about a brand → show generic versions of that product category
+- AVOID generic grocery aisle shots — every image should tell what the article is about at a glance
 
-The image should be suitable for a professional newsletter about grocery shopping and consumer products."""
+Style guidelines:
+- No humans; if present, only abstract silhouettes without facial features
+- No real brand names or logos; show generic packaging
+- English-only labels; simple words and US dollar prices
+- Clean, modern, well-lit photography style
+- The main subject should fill most of the frame (close-up or medium shot)
+- Use vibrant, appetizing colors appropriate to the subject
+
+The image should immediately convey what the article is about without reading the title."""
 
 
 class ImageGenerator:
@@ -76,9 +83,14 @@ class ImageGenerator:
         theme: str = ""
     ) -> str:
         """Create a detailed prompt for image generation."""
+        # Extract key subject from title for better theme if none provided
+        effective_theme = theme
+        if not effective_theme:
+            # Use the title itself as theme context so images are article-specific
+            effective_theme = f"Article topic: {title}. Focus the image on the specific subject matter."
         return IMAGE_PROMPT_TEMPLATE.format(
             title=title,
-            theme=theme or "grocery shopping and consumer products"
+            theme=effective_theme
         )
 
     def generate_image(
