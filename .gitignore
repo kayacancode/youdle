@@ -39,4 +39,4 @@ build/
 .handoffs/
 .mcp.json
 
-youdle_env/
+youdle_env/.history
