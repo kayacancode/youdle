@@ -148,17 +148,101 @@ def get_newsletter_with_posts(supabase, newsletter_id: str) -> Optional[dict]:
 
 
 def generate_content_driven_subject(post_titles: list) -> str:
-    """Generate a content-driven newsletter subject from article titles."""
+    """
+    Generate enhanced subject line from top 2 stories with natural variety.
+    Ticket 841: Replaces generic subjects with story-driven content.
+    """
+    import random
+    
     if not post_titles:
-        date_str = datetime.now().strftime('%B %d, %Y')
-        return f'Youdle Weekly: Your Grocery Insights for {date_str}'
-    lead = post_titles[0]
-    if len(lead) > 60:
-        lead = lead[:57] + '...'
-    remaining = len(post_titles) - 1
-    if remaining > 0:
-        return f'{lead} + {remaining} more stories this week'
-    return lead
+        # Fallback if no posts available
+        return 'Your grocery stories this week'
+    
+    if len(post_titles) == 1:
+        return clean_title_for_subject(post_titles[0])
+    
+    # Get top 2 stories for dual-story subject
+    title1 = clean_title_for_subject(post_titles[0])
+    title2 = clean_title_for_subject(post_titles[1])
+    
+    # Natural opener variations with weights
+    openers = [
+        # Direct patterns (30%)
+        {"pattern": f"{title1} + {title2}", "weight": 15},
+        {"pattern": f"{title1}, {title2}", "weight": 15},
+        
+        # Story count patterns (25%) 
+        {"pattern": f"{title1} + {len(post_titles) - 1} more grocery stories", "weight": 15},
+        {"pattern": f"{title1} and {len(post_titles) - 1} more stories you need to know", "weight": 10},
+        
+        # Trend/impact patterns (25%)
+        {"pattern": f"{title1} while {title2}", "weight": 10},
+        {"pattern": f"{title1} as {title2}", "weight": 10},
+        {"pattern": f"{title1} amid {title2}", "weight": 5},
+        
+        # Action/urgency patterns (20%)
+        {"pattern": f"{title1} — plus {title2}", "weight": 10},
+        {"pattern": f"{title1}: what you need to know", "weight": 5},
+        {"pattern": f"{title1} + breaking grocery news", "weight": 5},
+    ]
+    
+    # Weighted random selection
+    total_weight = sum(opener["weight"] for opener in openers)
+    random_val = random.randint(1, total_weight)
+    current_weight = 0
+    
+    for opener in openers:
+        current_weight += opener["weight"]
+        if random_val <= current_weight:
+            return opener["pattern"]
+    
+    # Fallback
+    return f"{title1} + {title2}"
+
+
+def clean_title_for_subject(title: str) -> str:
+    """Clean and optimize article title for subject line use."""
+    import re
+    
+    # Remove common article prefixes
+    cleaned = re.sub(r'^(Breaking|News|Update|Alert|Latest):\s*', '', title, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    
+    # Convert to sentence case (proper for subject lines)
+    cleaned = cleaned.lower()
+    if cleaned:
+        cleaned = cleaned[0].upper() + cleaned[1:]
+    
+    # Restore proper nouns and brands
+    proper_nouns = {
+        r'\buber\b': 'Uber',
+        r'\bwholе foods\b': 'Whole Foods', 
+        r'\bwalmart\b': 'Walmart',
+        r'\btarget\b': 'Target',
+        r'\bkroger\b': 'Kroger',
+        r'\bcostco\b': 'Costco',
+        r'\baldi\b': 'Aldi',
+        r'\bfda\b': 'FDA',
+        r'\busda\b': 'USDA',
+        r'\bsnap\b': 'SNAP',
+        r'\bgmo\b': 'GMO'
+    }
+    
+    for pattern, replacement in proper_nouns.items():
+        cleaned = re.sub(pattern, replacement, cleaned, flags=re.IGNORECASE)
+    
+    # Shorten if needed (target ~40-50 chars for good email display)
+    if len(cleaned) > 50:
+        words = cleaned.split(' ')
+        shortened = ''
+        for word in words:
+            if len(shortened + ' ' + word) <= 47:
+                shortened += (' ' if shortened else '') + word
+            else:
+                break
+        return shortened + '...' if shortened else cleaned[:47] + '...'
+    
+    return cleaned
 
 
 def generate_newsletter_html(supabase, post_ids: List[str]) -> str:
