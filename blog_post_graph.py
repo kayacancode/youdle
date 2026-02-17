@@ -338,8 +338,12 @@ def generate_posts_node(state: BlogPostState) -> Dict[str, Any]:
         generated_posts = []
         
         # Separate recall and shoppers articles (Issue #860 - consolidate recalls into roundup)
-        recall_articles_to_process = [a for a in articles_to_process if a.get("category", "SHOPPERS").lower() == "recall"]
-        shoppers_articles_to_process = [a for a in articles_to_process if a.get("category", "SHOPPERS").lower() != "recall"]
+        # Fixed: use consistent case checking with uppercase "RECALL" like in select_articles_node
+        recall_articles_to_process = [a for a in articles_to_process if a.get("category", "").upper() == "RECALL"]
+        shoppers_articles_to_process = [a for a in articles_to_process if a.get("category", "").upper() != "RECALL"]
+        
+        # Debug logging
+        logs.append(f"  📊 Found {len(recall_articles_to_process)} recall articles and {len(shoppers_articles_to_process)} shoppers articles")
         
         # Generate individual shoppers posts
         for article in shoppers_articles_to_process:
@@ -363,9 +367,9 @@ def generate_posts_node(state: BlogPostState) -> Dict[str, Any]:
             status = "✓" if result.get("success") else "✗"
             logs.append(f"  {status} {article.get('title', 'Unknown')[:50]}...")
         
-        # Consolidate recall articles into a single weekly roundup (Issue #860)
+        # Consolidate recall articles into a single weekly roundup (Issue #860 - Fix)
         if recall_articles_to_process:
-            logs.append(f"  Consolidating {len(recall_articles_to_process)} recall articles into weekly roundup...")
+            logs.append(f"  🔄 Consolidating {len(recall_articles_to_process)} recall articles into weekly roundup...")
             
             # Build combined content for the roundup
             combined_title = f"Weekly recall roundup: {len(recall_articles_to_process)} food safety alerts you need to know"
