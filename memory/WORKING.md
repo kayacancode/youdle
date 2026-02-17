@@ -61,7 +61,30 @@ The newsletter dashboard was generating duplicate outputs due to race conditions
 2. **Enhanced logging**: Added debug output to track recall vs shoppers separation
 3. **Updated comments**: Marked the fix clearly for future reference
 
-**Time**: 1 hour (analysis + fix)
+**Time**: 1 hour (analysis + fix)  
+**Status**: ✅ COMPLETE
+
+## Current Task: Issue 859 - Article Images Are All Aisles
+
+**Status**: FIXED - Enhanced image theme extraction
+
+**Problem**: Image generation system was producing generic grocery aisle images for all articles instead of tailored content-specific images.
+
+**Root Cause**: The `generate_image_for_article` method was only using the article category ("SHOPPERS", "RECALL") as the theme parameter, leading to generic images for all articles in the same category.
+
+**Solution Implemented**:
+1. **Added `_extract_article_theme()` method**: Analyzes article title and content for specific keywords
+2. **Comprehensive keyword mapping**: 50+ food/product keywords mapped to specific visual themes
+3. **Smart theme extraction**: Prioritizes title over content, falls back to intelligent category-based themes
+4. **Enhanced prompts**: More specific visual guidance (e.g., "coffee beans and cups" vs "grocery aisle")
+
+**Examples of improvements**:
+- Coffee article → "coffee beans, coffee cups, or coffee brewing equipment"  
+- Price increase article → "shopping cart, price tags, or receipts"
+- Apple article → "fresh red and green apples"
+- Generic article → "visually represents main topic from title, not generic aisles"
+
+**Time**: 1.5 hours (analysis + implementation)
 
 ### Branch
 `fix/bug-861-newsletter-duplicate-output`

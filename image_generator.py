@@ -183,10 +183,123 @@ class ImageGenerator:
 
     def generate_image_for_article(self, article: Dict[str, Any]) -> Dict[str, Any]:
         """Generate an image for an article."""
+        # Issue #859 Fix: Extract meaningful theme from article content, not just category
+        title = article.get("title", "Article Image")
+        
+        # Create a more specific theme by analyzing the article content
+        theme = self._extract_article_theme(article)
+        
         return self.generate_image(
-            title=article.get("title", "Article Image"),
-            theme=article.get("category", "")
+            title=title,
+            theme=theme
         )
+    
+    def _extract_article_theme(self, article: Dict[str, Any]) -> str:
+        """
+        Extract a meaningful theme from the article for image generation.
+        Issue #859: This replaces generic category themes with content-specific themes.
+        """
+        title = article.get("title", "").lower()
+        content = article.get("content", article.get("description", "")).lower()
+        category = article.get("category", "").upper()
+        
+        # Food/product-specific keywords to look for
+        food_keywords = {
+            # Beverages
+            "coffee": "coffee beans, coffee cups, or coffee brewing equipment",
+            "tea": "tea leaves, tea bags, or steaming tea cups", 
+            "juice": "fresh fruit juice glasses or fruit being juiced",
+            "soda": "soda bottles or cans with bubbles",
+            "water": "clear water bottles or glasses of water",
+            "wine": "wine bottles and grapes",
+            "beer": "beer bottles or glasses with foam",
+            
+            # Produce
+            "apple": "fresh red and green apples",
+            "banana": "ripe yellow bananas",
+            "orange": "bright orange citrus fruits",
+            "strawberr": "fresh red strawberries", 
+            "lettuce": "fresh green lettuce heads",
+            "tomato": "ripe red tomatoes",
+            "potato": "russet and red potatoes",
+            "onion": "yellow and red onions",
+            "carrot": "fresh orange carrots",
+            "produce": "colorful fresh fruits and vegetables",
+            "organic": "fresh organic produce with natural lighting",
+            
+            # Meat & Dairy
+            "chicken": "raw chicken pieces or cooked chicken dishes",
+            "beef": "raw beef cuts or grilled beef",
+            "pork": "pork chops or bacon strips",
+            "fish": "fresh fish fillets or whole fish",
+            "salmon": "fresh salmon fillets",
+            "milk": "glasses of milk or milk cartons",
+            "cheese": "various cheese blocks and wheels",
+            "yogurt": "yogurt cups or bowls",
+            "eggs": "fresh eggs in cartons or bowls",
+            
+            # Pantry Items
+            "bread": "fresh loaves of bread or sliced bread",
+            "pasta": "uncooked pasta shapes or pasta dishes",
+            "rice": "grains of rice or rice in bowls",
+            "cereal": "cereal boxes or bowls of cereal with milk",
+            "oil": "cooking oil bottles",
+            "sugar": "white sugar or sugar cubes",
+            "flour": "flour bags or flour being sifted",
+            
+            # Price/Economic themes
+            "price": "shopping cart, price tags, or receipts",
+            "expensive": "price tags with high dollar amounts",
+            "cheap": "discount tags or sale signs",
+            "inflation": "rising price charts or expensive shopping cart",
+            "cost": "calculator with grocery receipts",
+            "sale": "sale tags and discount signs",
+            "deal": "promotional pricing and shopping bags",
+            
+            # Store/Shopping themes
+            "walmart": "generic supermarket shopping cart and bags",
+            "target": "red shopping cart and retail bags", 
+            "kroger": "grocery shopping cart with fresh produce",
+            "safeway": "shopping basket with groceries",
+            "costco": "bulk shopping with large quantities",
+            "grocery": "shopping cart filled with various groceries",
+            "shopping": "shopping cart or grocery bags",
+            
+            # Recall themes (if not handled by default image)
+            "recall": "warning signs with food safety imagery",
+            "contaminated": "food safety warning symbols",
+            "bacteria": "microscopic imagery with warning symbols"
+        }
+        
+        # Economic/trend keywords
+        trend_keywords = {
+            "rising": "upward trending arrows with food items",
+            "falling": "downward trending arrows with discounted food",
+            "shortage": "empty shelves or scarce food items", 
+            "surplus": "abundant food items or overflowing baskets"
+        }
+        
+        # Check title first (most specific), then content
+        text_to_check = f"{title} {content}"
+        
+        # Look for specific food/product keywords
+        for keyword, theme in food_keywords.items():
+            if keyword in text_to_check:
+                return f"Focus on {theme}. Make it appetizing and clearly recognizable."
+        
+        # Check for trend/economic keywords  
+        for keyword, theme in trend_keywords.items():
+            if keyword in text_to_check:
+                return f"Show {theme} in a grocery context."
+                
+        # Category-based fallbacks with more specific guidance
+        if category == "RECALL":
+            return "Food safety warning imagery with the affected product type visible"
+        elif category == "SHOPPERS":
+            return "Shopping-related imagery focused on the specific product mentioned in the title"
+        
+        # Final fallback - use title analysis for completely custom themes
+        return f"Create an image that visually represents the main topic from: '{article.get('title', '')}'. Focus on the key subject matter, not generic grocery aisles."
 
 
 class PlaceholderImageGenerator:
@@ -230,9 +343,13 @@ class PlaceholderImageGenerator:
         article: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Generate a placeholder image for an article."""
+        # Use same theme extraction as the main generator for consistency
+        title = article.get("title", "Article Image")
+        
+        # For placeholder, just show the key subject from title
         return self.generate_image(
-            title=article.get("title", "Article Image"),
-            theme=article.get("category", "")
+            title=title,
+            theme=f"Placeholder for: {title}"
         )
 
     async def generate_images_concurrent(
