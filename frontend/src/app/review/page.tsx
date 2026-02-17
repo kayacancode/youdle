@@ -41,6 +41,32 @@ export default function ReviewPage() {
     }
   }
 
+  const handleApprove = async (rating: number, comment: string, feedbackType: string) => {
+    if (currentPost) {
+      try {
+        // Submit feedback AND approve (Issue #858 fix)
+        await addFeedback(currentPost.id, rating, comment)
+        await updateStatusMutation.mutateAsync({ postId: currentPost.id, status: 'approved' })
+        goToNext()
+      } catch (error) {
+        console.error('Failed to approve post:', error)
+      }
+    }
+  }
+
+  const handleReject = async (rating: number, comment: string, feedbackType: string) => {
+    if (currentPost) {
+      try {
+        // Submit feedback AND reject (Issue #858 fix)
+        await addFeedback(currentPost.id, rating, comment)
+        await updateStatusMutation.mutateAsync({ postId: currentPost.id, status: 'rejected' })
+        goToNext()
+      } catch (error) {
+        console.error('Failed to reject post:', error)
+      }
+    }
+  }
+
   const handleSkip = () => {
     goToNext()
   }
@@ -128,6 +154,8 @@ export default function ReviewPage() {
               postId={currentPost.id}
               postTitle={currentPost.title}
               onSubmit={handleSubmitReview}
+              onApprove={handleApprove}
+              onReject={handleReject}
               onSkip={handleSkip}
             />
           </div>

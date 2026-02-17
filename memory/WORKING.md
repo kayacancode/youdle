@@ -84,7 +84,33 @@ The newsletter dashboard was generating duplicate outputs due to race conditions
 - Apple article → "fresh red and green apples"
 - Generic article → "visually represents main topic from title, not generic aisles"
 
-**Time**: 1.5 hours (analysis + implementation)
+**Time**: 1.5 hours (analysis + implementation)  
+**Status**: ✅ COMPLETE
+
+## Current Task: Issue 858 - Unable to Submit Review AND Approve/Reject
+
+**Status**: FIXED - Added combined review+approval workflow
+
+**Problem**: Users could either submit a review with feedback OR approve/reject an article, but not both in one action. This broke the learning feedback loop and workflow.
+
+**Root Cause**: The ReviewForm component only had "Submit Review" and "Skip" buttons. No approve/reject functionality was available, forcing users to choose between providing feedback or moving articles through the pipeline.
+
+**Solution Implemented**:
+1. **Enhanced ReviewForm component**: Added onApprove and onReject callback props
+2. **New approve/reject buttons**: Primary action buttons that combine feedback submission with status change
+3. **Updated review page**: Added handleApprove and handleReject functions that:
+   - Submit feedback to the learning system
+   - Update article status (approved/rejected) 
+   - Move to next article automatically
+4. **Improved UX**: Clear hierarchy with approve/reject as primary actions, review-only as secondary
+
+**Workflow now**:
+- User rates article and adds comments
+- Clicks "Approve & Review" → submits feedback + approves + moves to next
+- Clicks "Reject & Review" → submits feedback + rejects + moves to next  
+- Clicks "Review Only" → submits feedback without status change (legacy behavior)
+
+**Time**: 1 hour (analysis + implementation)
 
 ### Branch
 `fix/bug-861-newsletter-duplicate-output`

@@ -1,13 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { Star, Send, Loader2 } from 'lucide-react'
+import { Star, Send, Loader2, CheckCircle, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ReviewFormProps {
   postId: string
   postTitle: string
   onSubmit: (rating: number, comment: string, feedbackType: string) => Promise<void>
+  onApprove?: (rating: number, comment: string, feedbackType: string) => Promise<void>
+  onReject?: (rating: number, comment: string, feedbackType: string) => Promise<void>
   onSkip: () => void
   className?: string
 }
@@ -20,12 +22,20 @@ const feedbackTypes = [
   { id: 'tone', label: 'Tone/Voice' },
 ]
 
-export function ReviewForm({ postId, postTitle, onSubmit, onSkip, className }: ReviewFormProps) {
+export function ReviewForm({ postId, postTitle, onSubmit, onApprove, onReject, onSkip, className }: ReviewFormProps) {
   const [rating, setRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
   const [comment, setComment] = useState('')
   const [feedbackType, setFeedbackType] = useState('general')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isApproving, setIsApproving] = useState(false)
+  const [isRejecting, setIsRejecting] = useState(false)
+
+  const resetForm = () => {
+    setRating(0)
+    setComment('')
+    setFeedbackType('general')
+  }
 
   const handleSubmit = async () => {
     if (rating === 0) return
@@ -33,14 +43,37 @@ export function ReviewForm({ postId, postTitle, onSubmit, onSkip, className }: R
     setIsSubmitting(true)
     try {
       await onSubmit(rating, comment, feedbackType)
-      // Reset form
-      setRating(0)
-      setComment('')
-      setFeedbackType('general')
+      resetForm()
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  const handleApprove = async () => {
+    if (!onApprove || rating === 0) return
+    
+    setIsApproving(true)
+    try {
+      await onApprove(rating, comment, feedbackType)
+      resetForm()
+    } finally {
+      setIsApproving(false)
+    }
+  }
+
+  const handleReject = async () => {
+    if (!onReject || rating === 0) return
+    
+    setIsRejecting(true)
+    try {
+      await onReject(rating, comment, feedbackType)
+      resetForm()
+    } finally {
+      setIsRejecting(false)
+    }
+  }
+
+  const isAnyActionPending = isSubmitting || isApproving || isRejecting
 
   return (
     <div className={cn(
@@ -124,33 +157,86 @@ export function ReviewForm({ postId, postTitle, onSubmit, onSkip, className }: R
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onSkip}
-          className="px-4 py-2 rounded-lg text-sm font-medium text-midnight-600  hover:text-midnight-800 dark:hover:text-midnight-200 hover:bg-midnight-100 dark:hover:bg-stone-100 transition-all"
-        >
-          Skip
-        </button>
-        
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={rating === 0 || isSubmitting}
-          className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
-            'bg-gradient-to-r from-youdle-500 to-youdle-600 text-stone-900',
-            'hover:from-youdle-600 hover:to-youdle-700 hover:shadow-lg hover:shadow-youdle-500/25',
-            'disabled:opacity-50 disabled:cursor-not-allowed'
-          )}
-        >
-          {isSubmitting ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Send className="w-4 h-4" />
-          )}
-          Submit Review
-        </button>
+      <div className="space-y-3">
+        {/* Primary Actions: Approve/Reject (Issue #858 fix) */}
+        {(onApprove || onReject) && (
+          <div className="flex items-center gap-3">
+            {onApprove && (
+              <button
+                type="button"
+                onClick={handleApprove}
+                disabled={rating === 0 || isAnyActionPending}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+                  'bg-green-600 text-white hover:bg-green-700',
+                  'disabled:opacity-50 disabled:cursor-not-allowed'
+                )}
+              >
+                {isApproving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="w-4 h-4" />
+                )}
+                Approve & Review
+              </button>
+            )}
+            
+            {onReject && (
+              <button
+                type="button"
+                onClick={handleReject}
+                disabled={rating === 0 || isAnyActionPending}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+                  'bg-red-600 text-white hover:bg-red-700',
+                  'disabled:opacity-50 disabled:cursor-not-allowed'
+                )}
+              >
+                {isRejecting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <XCircle className="w-4 h-4" />
+                )}
+                Reject & Review
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Secondary Actions */}
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onSkip}
+            disabled={isAnyActionPending}
+            className={cn(
+              "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+              "text-midnight-600 hover:text-midnight-800 hover:bg-midnight-100",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+          >
+            Skip
+          </button>
+          
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={rating === 0 || isAnyActionPending}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+              'bg-gradient-to-r from-youdle-500 to-youdle-600 text-stone-900',
+              'hover:from-youdle-600 hover:to-youdle-700 hover:shadow-lg hover:shadow-youdle-500/25',
+              'disabled:opacity-50 disabled:cursor-not-allowed'
+            )}
+          >
+            {isSubmitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            Review Only
+          </button>
+        </div>
       </div>
     </div>
   )
