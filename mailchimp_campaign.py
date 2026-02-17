@@ -126,7 +126,7 @@ NEWSLETTER_TEMPLATE = """<!doctype html>
                             <table align="left" width="100%" class="mcnCaptionBottomContent" cellpadding="0" cellspacing="0">
                               <tr>
                                 <td class="mcnTextContent" style="padding:0 18px;">
-                                  <h2>Welcome to Our Grocery Newsletter</h2>
+                                  <h2>{dynamic_headline}</h2>
                                   <p>Grocery retail trends, shopper insights, and inventory tips—built for shoppers, independent store owners and emergency managers.</p>
 
                                   <!-- Article List -->
@@ -322,7 +322,8 @@ class MailchimpCampaign:
     def create_newsletter_html(
         self,
         articles: List[Dict[str, Any]],
-        recall_articles: List[Dict[str, Any]] = None
+        recall_articles: List[Dict[str, Any]] = None,
+        dynamic_headline: str = None
     ) -> str:
         """
         Create newsletter HTML from articles.
@@ -330,6 +331,7 @@ class MailchimpCampaign:
         Args:
             articles: List of article data (title, url)
             recall_articles: List of recall article data
+            dynamic_headline: Custom headline for the newsletter (Issue #857 fix)
             
         Returns:
             HTML newsletter content
@@ -359,10 +361,24 @@ class MailchimpCampaign:
         else:
             recall_section = ""
         
+        # Generate dynamic headline if not provided (Issue #857 fix)
+        if not dynamic_headline:
+            if articles:
+                top_story = articles[0].get("title", "Grocery News")
+                total_stories = len(articles) + len(recall_articles or [])
+                if total_stories > 1:
+                    dynamic_headline = f"{top_story} + {total_stories - 1} More Stories"
+                else:
+                    dynamic_headline = top_story
+            else:
+                date_str = datetime.now().strftime("%B %d, %Y")
+                dynamic_headline = f"Grocery News - {date_str}"
+        
         # Create newsletter
         return NEWSLETTER_TEMPLATE.format(
             article_links=article_links,
             recall_section=recall_section,
+            dynamic_headline=dynamic_headline,
             year=datetime.now().year
         )
     
@@ -709,10 +725,11 @@ def create_newsletter_campaign(
     # Create campaign
     mailchimp = MailchimpCampaign(list_id=list_id)
     
-    # Generate HTML
+    # Generate HTML with subject as headline (Issue #857 fix)  
     html_content = mailchimp.create_newsletter_html(
         articles=shoppers_posts,
-        recall_articles=recall_posts
+        recall_articles=recall_posts,
+        dynamic_headline=subject
     )
     
     # Create subject if not provided — use content-driven headline
@@ -777,7 +794,12 @@ if __name__ == "__main__":
             recalls = [p for p in posts if p.get("category", "").upper() == "RECALL"]
             
             mailchimp = MailchimpCampaign()
-            html = mailchimp.create_newsletter_html(shoppers, recalls)
+            # Generate dynamic headline for preview
+            if shoppers:
+                preview_headline = f"{shoppers[0].get('title', 'Top Story')} + {len(shoppers) + len(recalls) - 1} More Stories"
+            else:
+                preview_headline = "Newsletter Preview"
+            html = mailchimp.create_newsletter_html(shoppers, recalls, dynamic_headline=preview_headline)
             
             print("=" * 60)
             print("NEWSLETTER PREVIEW")

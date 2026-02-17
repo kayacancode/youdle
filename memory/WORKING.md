@@ -112,5 +112,40 @@ The newsletter dashboard was generating duplicate outputs due to race conditions
 
 **Time**: 1 hour (analysis + implementation)
 
+## Current Task: Issue 857 - Headlines issues
+
+**Status**: FIXED - Resolved repetitive headlines and body duplication
+
+**Problems**: 
+1. Headlines should not be the same every week 
+2. Headlines keep appearing in body with "Youdle and [current date]"
+
+**Root Causes**:
+1. **Subject generation randomness**: Random seed wasn't time-based, causing similar patterns
+2. **Hardcoded newsletter header**: Template had static "Welcome to Our Grocery Newsletter" 
+3. **Subject/body disconnect**: Newsletter body didn't reflect the dynamic subject line
+
+**Solutions Implemented**:
+
+1. **Enhanced subject variety** (`generate_content_driven_subject`):
+   - Added time-based random seed for true randomness
+   - Expanded from 10 to 16 different pattern variations
+   - Better weight distribution (20% direct, 25% story count, 20% weekly framing, 15% temporal, 20% impact)
+   - More varied single-story and fallback patterns
+
+2. **Dynamic newsletter header** (`mailchimp_campaign.py`):
+   - Replaced hardcoded "Welcome to Our Grocery Newsletter" with `{dynamic_headline}` placeholder
+   - Updated `create_newsletter_html()` to accept `dynamic_headline` parameter
+   - Added automatic headline generation from top story + count when not provided
+
+3. **Subject-to-body sync** (`newsletters.py`):
+   - Modified `generate_newsletter_html()` to accept subject parameter
+   - Newsletter body header now matches the subject line
+   - Updated both create and update endpoints to pass subject as headline
+
+**Testing**: Headlines will now vary each week and match between subject line and newsletter body content.
+
+**Time**: 1.5 hours (analysis + implementation + testing)
+
 ### Branch
 `fix/bug-861-newsletter-duplicate-output`

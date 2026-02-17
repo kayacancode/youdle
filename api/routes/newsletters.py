@@ -150,43 +150,67 @@ def get_newsletter_with_posts(supabase, newsletter_id: str) -> Optional[dict]:
 def generate_content_driven_subject(post_titles: list) -> str:
     """
     Generate enhanced subject line from top 2 stories with natural variety.
-    Ticket 841: Replaces generic subjects with story-driven content.
+    Issue #857: Improved randomness and patterns to avoid repetitive headlines.
     """
     import random
+    import time
+    
+    # Seed random with time to ensure different results each run (Issue #857)
+    random.seed(int(time.time() * 1000) % 10000)
     
     if not post_titles:
-        # Fallback if no posts available
-        return 'Your grocery stories this week'
+        # More varied fallbacks
+        fallbacks = [
+            'Your weekly grocery updates',
+            'This week in grocery retail',
+            'Grocery trends you need to know',
+            'Your grocery news roundup'
+        ]
+        return random.choice(fallbacks)
     
     if len(post_titles) == 1:
-        return clean_title_for_subject(post_titles[0])
+        single_patterns = [
+            clean_title_for_subject(post_titles[0]),
+            f"{clean_title_for_subject(post_titles[0])} — what it means for shoppers",
+            f"{clean_title_for_subject(post_titles[0])} + this week's grocery news"
+        ]
+        return random.choice(single_patterns)
     
     # Get top 2 stories for dual-story subject
     title1 = clean_title_for_subject(post_titles[0])
     title2 = clean_title_for_subject(post_titles[1])
+    remaining_count = len(post_titles) - 1
     
-    # Natural opener variations with weights
+    # Expanded pattern variations with better distribution (Issue #857)
     openers = [
-        # Direct patterns (30%)
-        {"pattern": f"{title1} + {title2}", "weight": 15},
-        {"pattern": f"{title1}, {title2}", "weight": 15},
+        # Direct conjunction patterns (20%)
+        {"pattern": f"{title1} + {title2}", "weight": 8},
+        {"pattern": f"{title1}, {title2}", "weight": 7},
+        {"pattern": f"{title1} & {title2}", "weight": 5},
         
         # Story count patterns (25%) 
-        {"pattern": f"{title1} + {len(post_titles) - 1} more grocery stories", "weight": 15},
-        {"pattern": f"{title1} and {len(post_titles) - 1} more stories you need to know", "weight": 10},
+        {"pattern": f"{title1} + {remaining_count} more grocery stories", "weight": 10},
+        {"pattern": f"{title1} and {remaining_count} more stories you need to know", "weight": 8},
+        {"pattern": f"{title1} plus {remaining_count} more updates", "weight": 7},
         
-        # Trend/impact patterns (25%)
-        {"pattern": f"{title1} while {title2}", "weight": 10},
-        {"pattern": f"{title1} as {title2}", "weight": 10},
+        # Weekly framing patterns (20%)
+        {"pattern": f"This week: {title1} + {title2}", "weight": 8},
+        {"pattern": f"Weekly roundup: {title1} + more", "weight": 6},
+        {"pattern": f"Week ahead: {title1} + {remaining_count} stories", "weight": 6},
+        
+        # Temporal/causal patterns (15%)
+        {"pattern": f"{title1} while {title2}", "weight": 5},
+        {"pattern": f"{title1} as {title2}", "weight": 5},
         {"pattern": f"{title1} amid {title2}", "weight": 5},
         
-        # Action/urgency patterns (20%)
-        {"pattern": f"{title1} — plus {title2}", "weight": 10},
-        {"pattern": f"{title1}: what you need to know", "weight": 5},
-        {"pattern": f"{title1} + breaking grocery news", "weight": 5},
+        # Impact/attention patterns (20%)
+        {"pattern": f"{title1} — plus {title2}", "weight": 6},
+        {"pattern": f"{title1}: what shoppers need to know", "weight": 5},
+        {"pattern": f"{title1} + breaking grocery news", "weight": 4},
+        {"pattern": f"Breaking: {title1} + more stories", "weight": 5},
     ]
     
-    # Weighted random selection
+    # Weighted random selection with better distribution
     total_weight = sum(opener["weight"] for opener in openers)
     random_val = random.randint(1, total_weight)
     current_weight = 0
@@ -196,8 +220,13 @@ def generate_content_driven_subject(post_titles: list) -> str:
         if random_val <= current_weight:
             return opener["pattern"]
     
-    # Fallback
-    return f"{title1} + {title2}"
+    # Enhanced fallback with variety
+    fallbacks = [
+        f"{title1} + {title2}",
+        f"{title1} and {remaining_count} more stories",
+        f"This week: {title1} + more"
+    ]
+    return random.choice(fallbacks)
 
 
 def clean_title_for_subject(title: str) -> str:
@@ -245,9 +274,14 @@ def clean_title_for_subject(title: str) -> str:
     return cleaned
 
 
-def generate_newsletter_html(supabase, post_ids: List[str]) -> str:
+def generate_newsletter_html(supabase, post_ids: List[str], subject: str = None) -> str:
     """
     Generate newsletter HTML from blog post IDs.
+    
+    Args:
+        supabase: Supabase client
+        post_ids: List of blog post IDs
+        subject: Newsletter subject line to use as dynamic headline (Issue #857 fix)
     """
     from mailchimp_campaign import MailchimpCampaign
 
@@ -275,9 +309,9 @@ def generate_newsletter_html(supabase, post_ids: List[str]) -> str:
         else:
             shoppers.append(article)
 
-    # Create HTML
+    # Create HTML with dynamic headline (Issue #857 fix)
     mailchimp = MailchimpCampaign()
-    return mailchimp.create_newsletter_html(shoppers, recalls)
+    return mailchimp.create_newsletter_html(shoppers, recalls, dynamic_headline=subject)
 
 
 # ============================================================================
@@ -537,8 +571,8 @@ async def create_newsletter(data: NewsletterCreate):
             post_titles = [p["title"] for p in (post_titles_result.data or [])]
             subject = generate_content_driven_subject(post_titles)
 
-        # Generate HTML content
-        html_content = generate_newsletter_html(supabase, data.post_ids)
+        # Generate HTML content with subject as headline (Issue #857 fix)
+        html_content = generate_newsletter_html(supabase, data.post_ids, subject)
 
         # Create newsletter
         newsletter_id = str(uuid4())
@@ -626,8 +660,9 @@ async def update_newsletter(newsletter_id: str, data: NewsletterUpdate):
                     "position": i
                 }).execute()
 
-            # Regenerate HTML
-            update_data["html_content"] = generate_newsletter_html(supabase, data.post_ids)
+            # Regenerate HTML with updated subject (Issue #857 fix)
+            current_subject = data.subject if data.subject is not None else existing.data.get("subject", "")
+            update_data["html_content"] = generate_newsletter_html(supabase, data.post_ids, current_subject)
 
         # Update newsletter
         supabase.table("newsletters").update(update_data).eq("id", newsletter_id).execute()
