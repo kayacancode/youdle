@@ -147,5 +147,42 @@ The newsletter dashboard was generating duplicate outputs due to race conditions
 
 **Time**: 1.5 hours (analysis + implementation + testing)
 
+## Current Task: Issue 848 - No link to go back to main page from Youdle blog
+
+**Status**: FIXED - Added navigation link back to Youdle from blog posts
+
+**Problem**: When users navigate to Blogger.com from the app (via "View on Blogger" links), there's no way to return to the main Youdle application.
+
+**Root Cause**: Blog posts published to Blogger.com only contain the generated content without any navigation back to the source app.
+
+**Solution Implemented**:
+Added a "Back to Youdle" navigation link to both blog post templates:
+
+1. **Updated shoppers_prompt.py**:
+   - Added navigation div after image, before headline
+   - Styled with center alignment, subtle background
+   - Links to https://www.youdle.io/
+
+2. **Updated recall_prompt.py**:
+   - Same navigation link structure for consistency
+   - Maintains brand cohesion across both post types
+
+**Navigation Link HTML**:
+```html
+<div style="text-align: center; margin: 10px 0; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+  <a href="https://www.youdle.io/" style="color: #007c89; text-decoration: none; font-weight: 500;">← Back to Youdle</a>
+</div>
+```
+
+**Benefits**:
+- Users can easily return to main app from any blog post
+- Improves user retention and engagement
+- Consistent navigation experience
+- Drives traffic back to Youdle platform
+
+**Impact**: All future blog posts will include the navigation link. Existing posts will need regeneration to include the fix.
+
+**Time**: 45 minutes (analysis + implementation)
+
 ### Branch
 `fix/bug-861-newsletter-duplicate-output`

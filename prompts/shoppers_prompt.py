@@ -42,7 +42,12 @@ Youdle has three core features you should naturally reference:
    <img src="{{{{IMAGE_HERE}}}}" alt="article image"/>
    IMPORTANT: Use the LITERAL text "{{{{IMAGE_HERE}}}}" as the src value. Do NOT replace it with any URL.
 
-2. **Headline:** One <h2> tag using Zeigarnik gap formula. Sentence case only.
+2. **Navigation Link (Issue #848 fix):** Add a back-to-Youdle navigation link immediately after the image:
+   <div style="text-align: center; margin: 10px 0; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+     <a href="https://www.youdle.io/" style="color: #007c89; text-decoration: none; font-weight: 500;">← Back to Youdle</a>
+   </div>
+
+3. **Headline:** One <h2> tag using Zeigarnik gap formula. Sentence case only.
    - IMPORTANT: The headline must be UNIQUE to this specific article's topic. Never reuse generic headlines like "This week in grocery news" or "Youdle Weekly."
    - The headline should reference the specific subject matter (e.g. "Ground beef prices skyrocketing — here's what smart shoppers are doing").
    - NEVER repeat the headline text anywhere else in the article body. The <h2> appears exactly once.

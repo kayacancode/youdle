@@ -61,7 +61,12 @@ Youdle has three core features you should naturally reference:
    <img src="{{{{IMAGE_HERE}}}}" alt="article image"/>
    IMPORTANT: Use the LITERAL text "{{{{IMAGE_HERE}}}}" as the src value. Do NOT replace it with any URL.
 
-2. **Headline:** One <h2> tag. Sentence case only. Include the product/brand and recall reason.
+2. **Navigation Link (Issue #848 fix):** Add a back-to-Youdle navigation link immediately after the image:
+   <div style="text-align: center; margin: 10px 0; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+     <a href="https://www.youdle.io/" style="color: #007c89; text-decoration: none; font-weight: 500;">← Back to Youdle</a>
+   </div>
+
+3. **Headline:** One <h2> tag. Sentence case only. Include the product/brand and recall reason.
    Example: "Pepperidge Farm recalls Goldfish crackers over salmonella concerns"
    - Do NOT repeat the headline text anywhere else in the article body.
 
