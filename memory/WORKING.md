@@ -184,5 +184,35 @@ Added a "Back to Youdle" navigation link to both blog post templates:
 
 **Time**: 45 minutes (analysis + implementation)
 
+## Current Task: Issue 847 - Blogger location showing up as Australia
+
+**Status**: IDENTIFIED - Requires manual Blogger dashboard configuration change
+
+**Problem**: Blogger blog is displaying Australia as the location instead of United States.
+
+**Root Cause**: This is a Blogger account-level configuration issue, not a code issue. The blog location is set in the Blogger dashboard settings.
+
+**Solution Required**:
+Manual configuration change in Blogger dashboard:
+
+1. **Access Blogger Dashboard**: Go to blogger.com and sign in with the account used for Youdle blog
+2. **Navigate to Settings**: Go to Settings > Basic > Privacy 
+3. **Update Country/Region**: Change from "Australia" to "United States"
+4. **Save Changes**: Click Save to apply the new location setting
+
+**Why this isn't a code fix**:
+- Blog location/country is a Blogger platform setting, not controlled by the API
+- This setting affects blog visibility, search results, and localization features
+- Cannot be changed programmatically via Blogger API - requires manual dashboard access
+
+**Impact**: 
+- Affects blog's regional search visibility
+- May impact content localization and advertising
+- Could influence how Blogger categorizes the blog geographically
+
+**Dependencies**: Requires access to the Google account that owns the Blogger blog.
+
+**Time**: 15 minutes (investigation + documentation)
+
 ### Branch
 `fix/bug-861-newsletter-duplicate-output`
