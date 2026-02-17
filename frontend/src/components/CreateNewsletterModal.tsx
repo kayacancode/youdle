@@ -203,9 +203,16 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
         {/* Error message */}
         {(createMutation.isError || queueArticlesMutation.isError) && (
           <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
-            {(createMutation.error as Error)?.message ||
-             (queueArticlesMutation.error as Error)?.message ||
-             'Failed to create newsletter'}
+            <p className="font-medium">
+              {((createMutation.error as Error)?.message || (queueArticlesMutation.error as Error)?.message || '').includes('already queued recently') 
+                ? 'Newsletter Already Queued'
+                : 'Error Creating Newsletter'}
+            </p>
+            <p className="mt-1">
+              {(createMutation.error as Error)?.message ||
+               (queueArticlesMutation.error as Error)?.message ||
+               'Failed to create newsletter'}
+            </p>
           </div>
         )}
 
@@ -214,19 +221,29 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
           <button
             type="button"
             onClick={() => {
-              if (window.confirm('Queue all available articles and schedule for Thursday 9 AM CST?')) {
+              if (!queueArticlesMutation.isPending && window.confirm('Queue all available articles and schedule for Thursday 9 AM CST?')) {
                 queueArticlesMutation.mutate()
               }
             }}
             disabled={queueArticlesMutation.isPending || createMutation.isPending}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-all disabled:opacity-50"
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+              queueArticlesMutation.isPending || createMutation.isPending
+                ? "bg-stone-200 text-stone-500 cursor-not-allowed"
+                : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+            )}
           >
             {queueArticlesMutation.isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Queuing...
+              </>
             ) : (
-              <Calendar className="w-4 h-4" />
+              <>
+                <Calendar className="w-4 h-4" />
+                Queue Articles
+              </>
             )}
-            Queue Articles
           </button>
           <div className="flex items-center gap-3">
             <button
@@ -238,17 +255,27 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
             </button>
             <button
               type="button"
-              onClick={handleSubmit}
+              onClick={() => {
+                if (!createMutation.isPending && selectedPostIds.length > 0) {
+                  handleSubmit()
+                }
+              }}
               disabled={selectedPostIds.length === 0 || createMutation.isPending || queueArticlesMutation.isPending}
               className={cn(
                 'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
-                selectedPostIds.length === 0
+                selectedPostIds.length === 0 || createMutation.isPending || queueArticlesMutation.isPending
                   ? 'bg-stone-200 text-stone-500 cursor-not-allowed'
                   : 'bg-youdle-600 text-white hover:bg-youdle-700'
               )}
             >
-              {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-              Create Newsletter
+              {createMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Newsletter'
+              )}
             </button>
           </div>
         </div>

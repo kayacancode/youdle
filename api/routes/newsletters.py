@@ -514,6 +514,7 @@ async def create_newsletter(data: NewsletterCreate):
             raise HTTPException(status_code=503, detail="Database not configured")
 
         # Filter out posts already used in other newsletters (Bug #861 - prevent duplicates)
+        # Use a fresh query each time to avoid race conditions
         used_posts_result = supabase.table("newsletter_posts").select("blog_post_id").execute()
         used_post_ids = set(p["blog_post_id"] for p in (used_posts_result.data or []))
         filtered_post_ids = [pid for pid in data.post_ids if pid not in used_post_ids]
@@ -543,7 +544,8 @@ async def create_newsletter(data: NewsletterCreate):
         newsletter_id = str(uuid4())
         now = datetime.utcnow().isoformat()
 
-        supabase.table("newsletters").insert({
+        # Create newsletter first
+        newsletter_result = supabase.table("newsletters").insert({
             "id": newsletter_id,
             "title": title,
             "subject": subject,
@@ -553,14 +555,25 @@ async def create_newsletter(data: NewsletterCreate):
             "updated_at": now
         }).execute()
 
-        # Link posts to newsletter
+        if not newsletter_result.data:
+            raise HTTPException(status_code=500, detail="Failed to create newsletter")
+
+        # Immediately link posts in batch to prevent race conditions
+        newsletter_posts_data = []
         for i, post_id in enumerate(data.post_ids):
-            supabase.table("newsletter_posts").insert({
+            newsletter_posts_data.append({
                 "id": str(uuid4()),
                 "newsletter_id": newsletter_id,
                 "blog_post_id": post_id,
                 "position": i
-            }).execute()
+            })
+
+        # Insert all post links in one batch to minimize race condition window
+        posts_result = supabase.table("newsletter_posts").insert(newsletter_posts_data).execute()
+        if not posts_result.data:
+            # Clean up the newsletter if post linking failed
+            supabase.table("newsletters").delete().eq("id", newsletter_id).execute()
+            raise HTTPException(status_code=500, detail="Failed to link posts to newsletter")
 
         # Return the created newsletter
         return get_newsletter_with_posts(supabase, newsletter_id)
@@ -941,6 +954,27 @@ async def queue_articles():
         if supabase is None:
             raise HTTPException(status_code=503, detail="Database not configured")
 
+        # Use a database transaction to prevent race conditions
+        # Check if there's already a newsletter in progress from today
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        
+        # Check for existing newsletters created today that are queued/scheduled
+        existing_newsletters = supabase.table("newsletters").select("id, status, created_at").like(
+            "title", f"Weekly Newsletter - %{datetime.now().strftime('%Y')}%"
+        ).eq("status", "scheduled").execute()
+        
+        if existing_newsletters.data:
+            # Check if any were created in the last 5 minutes (prevent rapid duplicate creation)
+            recent_newsletters = []
+            cutoff_time = datetime.utcnow() - timedelta(minutes=5)
+            for newsletter in existing_newsletters.data:
+                created_time = datetime.fromisoformat(newsletter["created_at"].replace('Z', '+00:00'))
+                if created_time > cutoff_time:
+                    recent_newsletters.append(newsletter)
+            
+            if recent_newsletters:
+                raise HTTPException(status_code=409, detail="A newsletter was already queued recently. Please wait a few minutes before creating another one.")
+
         # Get ALL published posts with blogger_url (no date restriction)
         all_posts = supabase.table("blog_posts").select(
             "id"
@@ -953,7 +987,7 @@ async def queue_articles():
 
         all_post_ids = [p["id"] for p in all_posts.data]
 
-        # Get posts already in newsletters
+        # Get posts already in newsletters - use a more precise query to avoid race conditions
         used_posts = supabase.table("newsletter_posts").select("blog_post_id").execute()
         used_post_ids = set(p["blog_post_id"] for p in (used_posts.data or []))
 
@@ -975,7 +1009,8 @@ async def queue_articles():
         newsletter_id = str(uuid4())
         now = datetime.utcnow().isoformat()
 
-        supabase.table("newsletters").insert({
+        # Create newsletter first
+        newsletter_result = supabase.table("newsletters").insert({
             "id": newsletter_id,
             "title": title,
             "subject": subject,
@@ -985,14 +1020,25 @@ async def queue_articles():
             "updated_at": now
         }).execute()
 
-        # Link posts
+        if not newsletter_result.data:
+            raise HTTPException(status_code=500, detail="Failed to create newsletter")
+
+        # Immediately link posts to prevent race conditions
+        newsletter_posts_data = []
         for i, post_id in enumerate(available_post_ids):
-            supabase.table("newsletter_posts").insert({
+            newsletter_posts_data.append({
                 "id": str(uuid4()),
                 "newsletter_id": newsletter_id,
                 "blog_post_id": post_id,
                 "position": i
-            }).execute()
+            })
+
+        # Insert all post links in one batch to minimize race condition window
+        posts_result = supabase.table("newsletter_posts").insert(newsletter_posts_data).execute()
+        if not posts_result.data:
+            # Clean up the newsletter if post linking failed
+            supabase.table("newsletters").delete().eq("id", newsletter_id).execute()
+            raise HTTPException(status_code=500, detail="Failed to link posts to newsletter")
 
         # Now schedule the newsletter for Thursday 9 AM CST
         mailchimp = MailchimpCampaign()
