@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { Check, Loader2, Calendar } from 'lucide-react'
+import { Check, Loader2, Calendar, AlertCircle } from 'lucide-react'
 import { Modal } from './Modal'
 import { api, NewsletterCreate, BlogPostSummary } from '@/lib/api'
 import { cn, getCategoryColor } from '@/lib/utils'
@@ -17,6 +17,7 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
   const [title, setTitle] = useState('')
   const [subject, setSubject] = useState('')
   const [selectedPostIds, setSelectedPostIds] = useState<string[]>([])
+  const [creationMethod, setCreationMethod] = useState<'manual' | 'queue' | null>(null)
 
   // Fetch available posts
   const { data: posts, isLoading: postsLoading } = useQuery({
@@ -34,6 +35,10 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
       setTitle('')
       setSubject('')
       setSelectedPostIds([])
+      setCreationMethod(null)
+    },
+    onError: () => {
+      setCreationMethod(null)
     },
   })
 
@@ -45,6 +50,10 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
       setTitle('')
       setSubject('')
       setSelectedPostIds([])
+      setCreationMethod(null)
+    },
+    onError: () => {
+      setCreationMethod(null)
     },
   })
 
@@ -67,6 +76,7 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
       setTitle('')
       setSubject('')
       setSelectedPostIds([])
+      setCreationMethod(null)
     }
   }, [isOpen])
 
@@ -88,9 +98,10 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
     setSelectedPostIds([])
   }
 
-  const handleSubmit = () => {
-    if (selectedPostIds.length === 0) return
-
+  const handleCreateNewsletter = () => {
+    if (selectedPostIds.length === 0 || creationMethod !== null) return
+    
+    setCreationMethod('manual')
     createMutation.mutate({
       title: title || undefined,
       subject: subject || undefined,
@@ -98,9 +109,33 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
     })
   }
 
+  const handleQueueArticles = () => {
+    if (creationMethod !== null) return
+    
+    if (!window.confirm('This will automatically queue all available articles and schedule the newsletter for Thursday 9 AM CST. Continue?')) {
+      return
+    }
+    
+    setCreationMethod('queue')
+    queueArticlesMutation.mutate()
+  }
+
+  const isAnyOperationPending = createMutation.isPending || queueArticlesMutation.isPending
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create Newsletter">
       <div className="p-6 space-y-6">
+        {/* Warning about duplicate creation */}
+        {isAnyOperationPending && (
+          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-amber-800">
+              <p className="font-medium">Newsletter Creation in Progress</p>
+              <p className="mt-1">Please wait for the current operation to complete before creating another newsletter.</p>
+            </div>
+          </div>
+        )}
+
         {/* Title */}
         <div>
           <label className="block text-sm font-medium text-stone-700 mb-2">
@@ -111,7 +146,11 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Weekly Newsletter - January 6, 2026"
-            className="w-full px-4 py-2 rounded-lg border border-stone-300 focus:ring-2 focus:ring-youdle-500 focus:border-youdle-500 outline-none transition-all"
+            disabled={isAnyOperationPending}
+            className={cn(
+              "w-full px-4 py-2 rounded-lg border border-stone-300 focus:ring-2 focus:ring-youdle-500 focus:border-youdle-500 outline-none transition-all",
+              isAnyOperationPending && "bg-stone-100 cursor-not-allowed"
+            )}
           />
         </div>
 
@@ -125,7 +164,11 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Auto-generated from article titles (or type your own)"
-            className="w-full px-4 py-2 rounded-lg border border-stone-300 focus:ring-2 focus:ring-youdle-500 focus:border-youdle-500 outline-none transition-all"
+            disabled={isAnyOperationPending}
+            className={cn(
+              "w-full px-4 py-2 rounded-lg border border-stone-300 focus:ring-2 focus:ring-youdle-500 focus:border-youdle-500 outline-none transition-all",
+              isAnyOperationPending && "bg-stone-100 cursor-not-allowed"
+            )}
           />
         </div>
 
@@ -139,7 +182,13 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
               <button
                 type="button"
                 onClick={selectAll}
-                className="text-xs text-youdle-600 hover:text-youdle-700"
+                disabled={isAnyOperationPending}
+                className={cn(
+                  "text-xs hover:text-youdle-700 transition-colors",
+                  isAnyOperationPending 
+                    ? "text-stone-400 cursor-not-allowed" 
+                    : "text-youdle-600"
+                )}
               >
                 Select All
               </button>
@@ -147,7 +196,13 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
               <button
                 type="button"
                 onClick={deselectAll}
-                className="text-xs text-stone-500 hover:text-stone-700"
+                disabled={isAnyOperationPending}
+                className={cn(
+                  "text-xs hover:text-stone-700 transition-colors",
+                  isAnyOperationPending 
+                    ? "text-stone-400 cursor-not-allowed" 
+                    : "text-stone-500"
+                )}
               >
                 Clear
               </button>
@@ -164,12 +219,14 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
                 <button
                   key={post.id}
                   type="button"
-                  onClick={() => togglePost(post.id)}
+                  onClick={() => !isAnyOperationPending && togglePost(post.id)}
+                  disabled={isAnyOperationPending}
                   className={cn(
                     'w-full text-left p-3 rounded-lg border transition-all',
                     selectedPostIds.includes(post.id)
                       ? 'bg-youdle-50 border-youdle-300'
-                      : 'bg-white border-stone-200 hover:border-stone-300'
+                      : 'bg-white border-stone-200 hover:border-stone-300',
+                    isAnyOperationPending && 'cursor-not-allowed opacity-60'
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -220,15 +277,11 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
         <div className="flex items-center justify-between pt-4 border-t border-stone-200">
           <button
             type="button"
-            onClick={() => {
-              if (!queueArticlesMutation.isPending && window.confirm('Queue all available articles and schedule for Thursday 9 AM CST?')) {
-                queueArticlesMutation.mutate()
-              }
-            }}
-            disabled={queueArticlesMutation.isPending || createMutation.isPending}
+            onClick={handleQueueArticles}
+            disabled={isAnyOperationPending}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
-              queueArticlesMutation.isPending || createMutation.isPending
+              isAnyOperationPending
                 ? "bg-stone-200 text-stone-500 cursor-not-allowed"
                 : "bg-blue-100 text-blue-700 hover:bg-blue-200"
             )}
@@ -241,7 +294,7 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
             ) : (
               <>
                 <Calendar className="w-4 h-4" />
-                Queue Articles
+                Queue All Articles
               </>
             )}
           </button>
@@ -249,21 +302,23 @@ export function CreateNewsletterModal({ isOpen, onClose, onSuccess }: CreateNews
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm font-medium text-stone-700 hover:bg-stone-100 transition-all"
+              disabled={isAnyOperationPending}
+              className={cn(
+                "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                isAnyOperationPending
+                  ? "text-stone-500 cursor-not-allowed"
+                  : "text-stone-700 hover:bg-stone-100"
+              )}
             >
-              Cancel
+              {isAnyOperationPending ? 'Creating...' : 'Cancel'}
             </button>
             <button
               type="button"
-              onClick={() => {
-                if (!createMutation.isPending && selectedPostIds.length > 0) {
-                  handleSubmit()
-                }
-              }}
-              disabled={selectedPostIds.length === 0 || createMutation.isPending || queueArticlesMutation.isPending}
+              onClick={handleCreateNewsletter}
+              disabled={selectedPostIds.length === 0 || isAnyOperationPending}
               className={cn(
                 'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
-                selectedPostIds.length === 0 || createMutation.isPending || queueArticlesMutation.isPending
+                selectedPostIds.length === 0 || isAnyOperationPending
                   ? 'bg-stone-200 text-stone-500 cursor-not-allowed'
                   : 'bg-youdle-600 text-white hover:bg-youdle-700'
               )}
