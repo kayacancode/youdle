@@ -147,17 +147,103 @@ def get_newsletter_with_posts(supabase, newsletter_id: str) -> Optional[dict]:
     return newsletter
 
 
+def _spellcheck_subject(subject: str) -> str:
+    """
+    Auto-correct spelling errors in newsletter subject lines.
+    Preserves proper nouns, brands, numbers, and common abbreviations.
+    """
+    try:
+        from spellchecker import SpellChecker
+    except ImportError:
+        # If spellchecker not installed, return unchanged
+        return subject
+
+    spell = SpellChecker()
+
+    # Words to never correct (brands, proper nouns, abbreviations)
+    preserve_words = {
+        # Brands
+        'walmart', 'target', 'kroger', 'costco', 'aldi', 'publix', 'safeway',
+        'albertsons', 'wegmans', 'heb', 'meijer', 'trader', "joe's", 'joes',
+        'whole', 'foods', 'amazon', 'instacart', 'doordash', 'uber', 'eats',
+        'grubhub', 'shipt', 'gopuff', 'youdle',
+        # Government/organizations
+        'fda', 'usda', 'cdc', 'epa', 'snap', 'wic',
+        # Common abbreviations
+        'gmo', 'vs', 'etc', 'inc', 'llc', 'co',
+        # Time-related
+        "week's", 'weekly', "today's", "tomorrow's",
+        # Common grocery terms
+        'probiotic', 'probiotics', 'prebiotic', 'prebiotics', 'keto',
+        'gluten', 'vegan', 'organic', 'non-gmo', 'superfood', 'superfoods',
+    }
+
+    words = subject.split()
+    corrected_words = []
+
+    for word in words:
+        # Skip if it's a number, has numbers, or is very short
+        if any(c.isdigit() for c in word) or len(word) <= 2:
+            corrected_words.append(word)
+            continue
+
+        # Strip punctuation for checking but preserve it
+        stripped = word.lower().strip('.,;:!?()[]"\'—-–…')
+
+        # Skip if it's in our preserve list
+        if stripped in preserve_words:
+            corrected_words.append(word)
+            continue
+
+        # Skip if starts with capital (likely proper noun) and word is known
+        if word[0].isupper() and stripped in spell:
+            corrected_words.append(word)
+            continue
+
+        # Check if word is misspelled
+        if stripped and stripped not in spell:
+            correction = spell.correction(stripped)
+            # Only correct if we have a suggestion and it's different
+            if correction and correction != stripped:
+                # Preserve original casing pattern
+                if word[0].isupper():
+                    correction = correction.capitalize()
+                # Preserve punctuation
+                if word != stripped:
+                    prefix = ''
+                    suffix = ''
+                    for i, c in enumerate(word):
+                        if c.isalpha():
+                            prefix = word[:i]
+                            break
+                    for i, c in enumerate(reversed(word)):
+                        if c.isalpha():
+                            suffix = word[len(word)-i:] if i > 0 else ''
+                            break
+                    correction = prefix + correction + suffix
+                corrected_words.append(correction)
+            else:
+                corrected_words.append(word)
+        else:
+            corrected_words.append(word)
+
+    return ' '.join(corrected_words)
+
+
 def generate_content_driven_subject(post_titles: list) -> str:
     """
     Generate enhanced subject line from top 2 stories with natural variety.
     Issue #857: Improved randomness and patterns to avoid repetitive headlines.
+    Includes automatic spell checking.
     """
     import random
     import time
-    
+
     # Seed random with time to ensure different results each run (Issue #857)
     random.seed(int(time.time() * 1000) % 10000)
-    
+
+    subject = None
+
     if not post_titles:
         # More varied fallbacks
         fallbacks = [
@@ -166,86 +252,92 @@ def generate_content_driven_subject(post_titles: list) -> str:
             'Grocery trends you need to know',
             'Your grocery news roundup'
         ]
-        return random.choice(fallbacks)
-    
-    if len(post_titles) == 1:
+        subject = random.choice(fallbacks)
+
+    elif len(post_titles) == 1:
         single_patterns = [
             clean_title_for_subject(post_titles[0]),
             f"{clean_title_for_subject(post_titles[0])} — what it means for shoppers",
             f"{clean_title_for_subject(post_titles[0])} + this week's grocery news"
         ]
-        return random.choice(single_patterns)
-    
-    # Get top 2 stories for dual-story subject
-    title1 = clean_title_for_subject(post_titles[0])
-    title2 = clean_title_for_subject(post_titles[1])
-    remaining_count = len(post_titles) - 1
-    
-    # Expanded pattern variations with better distribution (Issue #857)
-    openers = [
-        # Direct conjunction patterns (20%)
-        {"pattern": f"{title1} + {title2}", "weight": 8},
-        {"pattern": f"{title1}, {title2}", "weight": 7},
-        {"pattern": f"{title1} & {title2}", "weight": 5},
-        
-        # Story count patterns (25%) 
-        {"pattern": f"{title1} + {remaining_count} more grocery stories", "weight": 10},
-        {"pattern": f"{title1} and {remaining_count} more stories you need to know", "weight": 8},
-        {"pattern": f"{title1} plus {remaining_count} more updates", "weight": 7},
-        
-        # Weekly framing patterns (20%)
-        {"pattern": f"This week: {title1} + {title2}", "weight": 8},
-        {"pattern": f"Weekly roundup: {title1} + more", "weight": 6},
-        {"pattern": f"Week ahead: {title1} + {remaining_count} stories", "weight": 6},
-        
-        # Temporal/causal patterns (15%)
-        {"pattern": f"{title1} while {title2}", "weight": 5},
-        {"pattern": f"{title1} as {title2}", "weight": 5},
-        {"pattern": f"{title1} amid {title2}", "weight": 5},
-        
-        # Impact/attention patterns (20%)
-        {"pattern": f"{title1} — plus {title2}", "weight": 6},
-        {"pattern": f"{title1}: what shoppers need to know", "weight": 5},
-        {"pattern": f"{title1} + breaking grocery news", "weight": 4},
-        {"pattern": f"Breaking: {title1} + more stories", "weight": 5},
-    ]
-    
-    # Weighted random selection with better distribution
-    total_weight = sum(opener["weight"] for opener in openers)
-    random_val = random.randint(1, total_weight)
-    current_weight = 0
-    
-    for opener in openers:
-        current_weight += opener["weight"]
-        if random_val <= current_weight:
-            return opener["pattern"]
-    
-    # Enhanced fallback with variety
-    fallbacks = [
-        f"{title1} + {title2}",
-        f"{title1} and {remaining_count} more stories",
-        f"This week: {title1} + more"
-    ]
-    return random.choice(fallbacks)
+        subject = random.choice(single_patterns)
+
+    else:
+        # Get top 2 stories for dual-story subject
+        title1 = clean_title_for_subject(post_titles[0])
+        title2 = clean_title_for_subject(post_titles[1])
+        remaining_count = len(post_titles) - 1
+
+        # Expanded pattern variations with better distribution (Issue #857)
+        openers = [
+            # Direct conjunction patterns (20%)
+            {"pattern": f"{title1} + {title2}", "weight": 8},
+            {"pattern": f"{title1}, {title2}", "weight": 7},
+            {"pattern": f"{title1} & {title2}", "weight": 5},
+
+            # Story count patterns (25%)
+            {"pattern": f"{title1} + {remaining_count} more grocery stories", "weight": 10},
+            {"pattern": f"{title1} and {remaining_count} more stories you need to know", "weight": 8},
+            {"pattern": f"{title1} plus {remaining_count} more updates", "weight": 7},
+
+            # Weekly framing patterns (20%)
+            {"pattern": f"This week: {title1} + {title2}", "weight": 8},
+            {"pattern": f"Weekly roundup: {title1} + more", "weight": 6},
+            {"pattern": f"Week ahead: {title1} + {remaining_count} stories", "weight": 6},
+
+            # Temporal/causal patterns (15%)
+            {"pattern": f"{title1} while {title2}", "weight": 5},
+            {"pattern": f"{title1} as {title2}", "weight": 5},
+            {"pattern": f"{title1} amid {title2}", "weight": 5},
+
+            # Impact/attention patterns (20%)
+            {"pattern": f"{title1} — plus {title2}", "weight": 6},
+            {"pattern": f"{title1}: what shoppers need to know", "weight": 5},
+            {"pattern": f"{title1} + breaking grocery news", "weight": 4},
+            {"pattern": f"Breaking: {title1} + more stories", "weight": 5},
+        ]
+
+        # Weighted random selection with better distribution
+        total_weight = sum(opener["weight"] for opener in openers)
+        random_val = random.randint(1, total_weight)
+        current_weight = 0
+
+        for opener in openers:
+            current_weight += opener["weight"]
+            if random_val <= current_weight:
+                subject = opener["pattern"]
+                break
+
+        # Enhanced fallback with variety
+        if subject is None:
+            fallbacks = [
+                f"{title1} + {title2}",
+                f"{title1} and {remaining_count} more stories",
+                f"This week: {title1} + more"
+            ]
+            subject = random.choice(fallbacks)
+
+    # Apply spell check to the final subject line
+    return _spellcheck_subject(subject)
 
 
 def clean_title_for_subject(title: str) -> str:
     """Clean and optimize article title for subject line use."""
     import re
-    
+
     # Remove common article prefixes
     cleaned = re.sub(r'^(Breaking|News|Update|Alert|Latest):\s*', '', title, flags=re.IGNORECASE)
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-    
+
     # Convert to sentence case (proper for subject lines)
     cleaned = cleaned.lower()
     if cleaned:
         cleaned = cleaned[0].upper() + cleaned[1:]
-    
+
     # Restore proper nouns and brands
     proper_nouns = {
         r'\buber\b': 'Uber',
-        r'\bwholе foods\b': 'Whole Foods', 
+        r'\bwhole foods\b': 'Whole Foods',
         r'\bwalmart\b': 'Walmart',
         r'\btarget\b': 'Target',
         r'\bkroger\b': 'Kroger',
@@ -256,21 +348,46 @@ def clean_title_for_subject(title: str) -> str:
         r'\bsnap\b': 'SNAP',
         r'\bgmo\b': 'GMO'
     }
-    
+
     for pattern, replacement in proper_nouns.items():
         cleaned = re.sub(pattern, replacement, cleaned, flags=re.IGNORECASE)
-    
-    # Shorten if needed (target ~40-50 chars for good email display)
-    if len(cleaned) > 50:
+
+    # Words that should never end a truncated title (incomplete phrases)
+    bad_ending_words = {
+        'the', 'a', 'an',  # articles
+        'to', 'of', 'for', 'with', 'in', 'on', 'at', 'by', 'from',  # prepositions
+        'and', 'or', 'but', 'nor',  # conjunctions
+        'is', 'are', 'was', 'were', 'be', 'been', 'being',  # be verbs
+        'has', 'have', 'had',  # have verbs
+        'will', 'would', 'could', 'should', 'may', 'might', 'must',  # modals
+        'this', 'that', 'these', 'those',  # demonstratives
+        'here\'s', 'there\'s', 'it\'s', 'what\'s', 'who\'s',  # contractions
+    }
+
+    # Shorten if needed (target ~45 chars to leave room for pattern suffix)
+    if len(cleaned) > 45:
         words = cleaned.split(' ')
         shortened = ''
+        last_good_shortened = ''
+
         for word in words:
-            if len(shortened + ' ' + word) <= 47:
-                shortened += (' ' if shortened else '') + word
+            test_len = len(shortened + ' ' + word) if shortened else len(word)
+            if test_len <= 42:
+                shortened = (shortened + ' ' + word) if shortened else word
+                # Track last "good" ending (not an incomplete word)
+                if word.lower().rstrip('.,;:!?') not in bad_ending_words:
+                    last_good_shortened = shortened
             else:
                 break
-        return shortened + '...' if shortened else cleaned[:47] + '...'
-    
+
+        # Use the last semantically complete phrase, or fall back to shortened
+        final = last_good_shortened if last_good_shortened else shortened
+
+        # Only add ellipsis if we actually truncated
+        if final and len(final) < len(cleaned):
+            return final.rstrip('.,;:!?') + '...'
+        return final if final else cleaned[:42] + '...'
+
     return cleaned
 
 

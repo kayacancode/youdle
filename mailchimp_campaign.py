@@ -21,6 +21,144 @@ except ImportError:
 
 
 # ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def _spellcheck_subject(subject: str) -> str:
+    """
+    Auto-correct spelling errors in newsletter subject lines.
+    Preserves proper nouns, brands, numbers, and common abbreviations.
+    """
+    try:
+        from spellchecker import SpellChecker
+    except ImportError:
+        # If spellchecker not installed, return unchanged
+        return subject
+
+    spell = SpellChecker()
+
+    # Words to never correct (brands, proper nouns, abbreviations)
+    preserve_words = {
+        # Brands
+        'walmart', 'target', 'kroger', 'costco', 'aldi', 'publix', 'safeway',
+        'albertsons', 'wegmans', 'heb', 'meijer', 'trader', "joe's", 'joes',
+        'whole', 'foods', 'amazon', 'instacart', 'doordash', 'uber', 'eats',
+        'grubhub', 'shipt', 'gopuff', 'youdle',
+        # Government/organizations
+        'fda', 'usda', 'cdc', 'epa', 'fda', 'usda', 'snap', 'wic',
+        # Common abbreviations
+        'gmo', 'vs', 'etc', 'inc', 'llc', 'co',
+        # Time-related
+        "week's", 'weekly', "today's", "tomorrow's",
+        # Common grocery terms
+        'probiotic', 'probiotics', 'prebiotic', 'prebiotics', 'keto',
+        'gluten', 'vegan', 'organic', 'non-gmo', 'superfood', 'superfoods',
+    }
+
+    words = subject.split()
+    corrected_words = []
+
+    for word in words:
+        # Skip if it's a number, has numbers, or is very short
+        if any(c.isdigit() for c in word) or len(word) <= 2:
+            corrected_words.append(word)
+            continue
+
+        # Strip punctuation for checking but preserve it
+        stripped = word.lower().strip('.,;:!?()[]"\'—-–…')
+
+        # Skip if it's in our preserve list
+        if stripped in preserve_words:
+            corrected_words.append(word)
+            continue
+
+        # Skip if starts with capital (likely proper noun) and word is known
+        if word[0].isupper() and stripped in spell:
+            corrected_words.append(word)
+            continue
+
+        # Check if word is misspelled
+        if stripped and stripped not in spell:
+            correction = spell.correction(stripped)
+            # Only correct if we have a suggestion and it's different
+            if correction and correction != stripped:
+                # Preserve original casing pattern
+                if word[0].isupper():
+                    correction = correction.capitalize()
+                # Preserve punctuation
+                if word != stripped:
+                    # Find what punctuation was stripped
+                    prefix = ''
+                    suffix = ''
+                    for i, c in enumerate(word):
+                        if c.isalpha():
+                            prefix = word[:i]
+                            break
+                    for i, c in enumerate(reversed(word)):
+                        if c.isalpha():
+                            suffix = word[len(word)-i:] if i > 0 else ''
+                            break
+                    correction = prefix + correction + suffix
+                corrected_words.append(correction)
+            else:
+                corrected_words.append(word)
+        else:
+            corrected_words.append(word)
+
+    return ' '.join(corrected_words)
+
+
+def _smart_truncate_title(title: str, max_len: int = 45) -> str:
+    """
+    Truncate title intelligently - avoids cutting after articles, prepositions, etc.
+    Returns a semantically complete phrase with ellipsis if truncated.
+    """
+    import re
+
+    # Clean up whitespace
+    cleaned = re.sub(r'\s+', ' ', title).strip()
+
+    if len(cleaned) <= max_len:
+        return cleaned
+
+    # Words that should never end a truncated title (incomplete phrases)
+    bad_ending_words = {
+        'the', 'a', 'an',  # articles
+        'to', 'of', 'for', 'with', 'in', 'on', 'at', 'by', 'from',  # prepositions
+        'and', 'or', 'but', 'nor',  # conjunctions
+        'is', 'are', 'was', 'were', 'be', 'been', 'being',  # be verbs
+        'has', 'have', 'had',  # have verbs
+        'will', 'would', 'could', 'should', 'may', 'might', 'must',  # modals
+        'this', 'that', 'these', 'those',  # demonstratives
+        "here's", "there's", "it's", "what's", "who's",  # contractions
+    }
+
+    words = cleaned.split(' ')
+    shortened = ''
+    last_good_shortened = ''
+    target_len = max_len - 3  # Leave room for "..."
+
+    for word in words:
+        test_len = len(shortened + ' ' + word) if shortened else len(word)
+        if test_len <= target_len:
+            shortened = (shortened + ' ' + word) if shortened else word
+            # Track last "good" ending (not an incomplete word)
+            if word.lower().rstrip('.,;:!?—-') not in bad_ending_words:
+                last_good_shortened = shortened
+        else:
+            break
+
+    # Use the last semantically complete phrase, or fall back to shortened
+    final = last_good_shortened if last_good_shortened else shortened
+
+    # Only add ellipsis if we actually truncated
+    if final and len(final) < len(cleaned):
+        return final.rstrip('.,;:!?—-') + '...'
+
+    return final if final else cleaned[:target_len] + '...'
+
+
+# ============================================================================
 # CONFIGURATION
 # ============================================================================
 
@@ -736,13 +874,16 @@ def create_newsletter_campaign(
     if not subject:
         all_titles = [p.get("title", "") for p in posts if p.get("title")]
         if all_titles:
-            lead = all_titles[0][:60]
+            lead = _smart_truncate_title(all_titles[0], max_len=45)
             remaining = len(all_titles) - 1
             subject = f"{lead} + {remaining} more stories this week" if remaining > 0 else lead
         else:
             date_str = datetime.now().strftime("%B %d, %Y")
-            subject = f"🛒 Youdle Weekly - {date_str}"
-    
+            subject = f"Youdle Weekly - {date_str}"
+
+    # Auto-correct spelling errors in subject line
+    subject = _spellcheck_subject(subject)
+
     # Create campaign
     result = mailchimp.create_campaign(
         subject=subject,
