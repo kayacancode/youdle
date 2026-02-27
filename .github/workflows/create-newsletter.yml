@@ -18,9 +18,9 @@ on:
         required: false
         type: string
       send_immediately:
-        description: 'Send campaign immediately'
+        description: 'Send campaign immediately (bypasses draft/review step)'
         required: false
-        default: true
+        default: false
         type: boolean
       preview_only:
         description: 'Preview only (do not create campaign)'
@@ -100,32 +100,32 @@ jobs:
 
             # Send success notification when requirements are met
             python -c "
-          from sendgrid_notifier import SendGridNotifier
-          notifier = SendGridNotifier()
-          result = notifier.send_requirements_met_notification(
-              published_count=${PUBLISHED},
-              required_count=7,
-              shoppers_published=${SHOPPERS},
-              recall_published=${RECALL}
-          )
-          print(f'Success notification result: {result}')
-          "
+from sendgrid_notifier import SendGridNotifier
+notifier = SendGridNotifier()
+result = notifier.send_requirements_met_notification(
+    published_count=${PUBLISHED},
+    required_count=7,
+    shoppers_published=${SHOPPERS},
+    recall_published=${RECALL}
+)
+print(f'Success notification result: {result}')
+"
           else
             echo "Publishing requirements NOT met. Cancelling newsletter."
             echo "can_proceed=false" >> $GITHUB_OUTPUT
 
             # Send cancellation notification
             python -c "
-          from sendgrid_notifier import SendGridNotifier
-          notifier = SendGridNotifier()
-          result = notifier.send_newsletter_cancelled_notification(
-              published_count=${PUBLISHED},
-              required_count=7,
-              shoppers_published=${SHOPPERS},
-              recall_published=${RECALL}
-          )
-          print(f'Cancellation notification result: {result}')
-          "
+from sendgrid_notifier import SendGridNotifier
+notifier = SendGridNotifier()
+result = notifier.send_newsletter_cancelled_notification(
+    published_count=${PUBLISHED},
+    required_count=7,
+    shoppers_published=${SHOPPERS},
+    recall_published=${RECALL}
+)
+print(f'Cancellation notification result: {result}')
+"
           fi
 
       - name: Summary (check result)
@@ -195,8 +195,30 @@ jobs:
         run: |
           python mailchimp_campaign.py --preview -d blog_posts/
 
-      - name: Create Mailchimp campaign
-        if: ${{ github.event.inputs.preview_only != 'true' }}
+      - name: Create draft newsletter for review
+        if: ${{ github.event.inputs.preview_only != 'true' && github.event.inputs.send_immediately != 'true' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          ADMIN_NOTIFICATION_EMAIL: ${{ secrets.ADMIN_NOTIFICATION_EMAIL }}
+        run: |
+          SUBJECT_FLAG=""
+          if [ -n "${{ github.event.inputs.subject }}" ]; then
+            SUBJECT_FLAG="--subject \"${{ github.event.inputs.subject }}\""
+          fi
+
+          python create_draft_newsletter.py $SUBJECT_FLAG --json > campaign_result.json
+
+          echo "## Draft Newsletter Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "A draft newsletter has been created for review." >> $GITHUB_STEP_SUMMARY
+          echo "**Review and approve it on the [dashboard](https://youdle-agent-dashboard.vercel.app/newsletters).**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat campaign_result.json >> $GITHUB_STEP_SUMMARY
+
+      - name: Send immediately (manual override)
+        if: ${{ github.event.inputs.preview_only != 'true' && github.event.inputs.send_immediately == 'true' }}
         env:
           MAILCHIMP_API_KEY: ${{ secrets.MAILCHIMP_API_KEY }}
           MAILCHIMP_LIST_ID: ${{ secrets.MAILCHIMP_LIST_ID }}
@@ -204,12 +226,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          # Always send for scheduled runs, or when send_immediately is true for manual runs
-          SEND_FLAG=""
-          if [ "${{ github.event_name }}" == "schedule" ] || [ "${{ github.event.inputs.send_immediately }}" == "true" ]; then
-            SEND_FLAG="--send"
-          fi
-
           SUBJECT_FLAG=""
           if [ -n "${{ github.event.inputs.subject }}" ]; then
             SUBJECT_FLAG="-s \"${{ github.event.inputs.subject }}\""
@@ -220,9 +236,9 @@ jobs:
             AUDIENCE_FLAG="--list-id ${{ github.event.inputs.audience_id }}"
           fi
 
-          python mailchimp_campaign.py -d blog_posts/ $SEND_FLAG $SUBJECT_FLAG $AUDIENCE_FLAG > campaign_result.json
+          python mailchimp_campaign.py -d blog_posts/ --send $SUBJECT_FLAG $AUDIENCE_FLAG > campaign_result.json
 
-          echo "## Campaign Result" >> $GITHUB_STEP_SUMMARY
+          echo "## Campaign Result (Sent Immediately)" >> $GITHUB_STEP_SUMMARY
           cat campaign_result.json >> $GITHUB_STEP_SUMMARY
 
       - name: Upload campaign result
