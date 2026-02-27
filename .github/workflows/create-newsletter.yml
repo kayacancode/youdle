@@ -99,33 +99,13 @@ jobs:
             echo "can_proceed=true" >> $GITHUB_OUTPUT
 
             # Send success notification when requirements are met
-            python -c "
-from sendgrid_notifier import SendGridNotifier
-notifier = SendGridNotifier()
-result = notifier.send_requirements_met_notification(
-    published_count=${PUBLISHED},
-    required_count=7,
-    shoppers_published=${SHOPPERS},
-    recall_published=${RECALL}
-)
-print(f'Success notification result: {result}')
-"
+            python send_notifications.py met ${PUBLISHED} ${SHOPPERS} ${RECALL}
           else
             echo "Publishing requirements NOT met. Cancelling newsletter."
             echo "can_proceed=false" >> $GITHUB_OUTPUT
 
             # Send cancellation notification
-            python -c "
-from sendgrid_notifier import SendGridNotifier
-notifier = SendGridNotifier()
-result = notifier.send_newsletter_cancelled_notification(
-    published_count=${PUBLISHED},
-    required_count=7,
-    shoppers_published=${SHOPPERS},
-    recall_published=${RECALL}
-)
-print(f'Cancellation notification result: {result}')
-"
+            python send_notifications.py cancelled ${PUBLISHED} ${SHOPPERS} ${RECALL}
           fi
 
       - name: Summary (check result)
