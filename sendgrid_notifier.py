@@ -515,6 +515,61 @@ class SendGridNotifier:
         html = self._build_html(subject, content)
         return self.send_notification(subject, html)
 
+    def send_newsletter_draft_ready_notification(
+        self,
+        newsletter_id: str,
+        subject: str,
+        post_count: int,
+        shoppers_count: int = 0,
+        recall_count: int = 0,
+        post_titles: list = None
+    ) -> dict:
+        """
+        Send notification that a draft newsletter is ready for subject line review.
+        The team should review the auto-generated subject, edit if needed, then schedule/send.
+        """
+        email_subject = f"📬 Newsletter draft ready — review subject line before sending"
+
+        titles_html = ""
+        if post_titles:
+            titles_html = "<ul style='margin: 10px 0; padding-left: 20px;'>"
+            for t in post_titles:
+                titles_html += f"<li style='margin: 4px 0; color: #555;'>{t}</li>"
+            titles_html += "</ul>"
+
+        content = f"""
+        <h2 style="color: #222;">📬 Newsletter Draft Ready for Review</h2>
+
+        <p>A draft newsletter has been created with <strong>{post_count} articles</strong>
+        ({shoppers_count} shoppers, {recall_count} recall).</p>
+
+        <div style="background: #f8f5f0; border-radius: 8px; padding: 16px; margin: 20px 0; border-left: 4px solid #e8a23a;">
+            <p style="margin: 0 0 4px; font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">Auto-generated subject line</p>
+            <p style="margin: 0; font-size: 18px; font-weight: bold; color: #222;">{subject}</p>
+        </div>
+
+        <p><strong>What to do:</strong></p>
+        <ol>
+            <li>Go to the Newsletters dashboard</li>
+            <li>Review the subject line — edit it if you want</li>
+            <li>Preview the newsletter content</li>
+            <li>Click <strong>Schedule</strong> (Thursday 9 AM CST) or <strong>Send Now</strong></li>
+        </ol>
+
+        {f'<p><strong>Articles included:</strong></p>{titles_html}' if titles_html else ''}
+
+        <p style="text-align: center; margin-top: 24px;">
+            <a href="{DASHBOARD_URL}/newsletters" class="cta-button">Review & Send Newsletter</a>
+        </p>
+
+        <p style="color: #999; font-size: 12px; margin-top: 20px; text-align: center;">
+            The newsletter will <strong>not</strong> send automatically. You must approve it on the dashboard.
+        </p>
+        """
+
+        html = self._build_html(email_subject, content)
+        return self.send_notification(email_subject, html)
+
 
 # For testing
 if __name__ == "__main__":

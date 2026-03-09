@@ -1,0 +1,45 @@
+name: Weekly Shopper Behavior Report
+
+on:
+  schedule:
+    # Every Monday at 9:00 AM CST (15:00 UTC)
+    - cron: '0 15 * * 1'
+  workflow_dispatch:  # Allow manual triggers
+
+jobs:
+  analyze-and-send:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate and send shopper behavior report
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          ADMIN_NOTIFICATION_EMAIL: kontji@getyoudle.com,johnita@getyoudle.com
+          SENDER_EMAIL: info@getyoudle.com
+          SEARCH_SUPABASE_URL: ${{ secrets.SEARCH_SUPABASE_URL }}
+          SEARCH_SUPABASE_KEY: ${{ secrets.SEARCH_SUPABASE_KEY }}
+        run: |
+          python analyze_shopper_behavior.py
+
+      - name: Report status
+        if: always()
+        run: |
+          if [ $? -eq 0 ]; then
+            echo "✓ Weekly shopper behavior report sent successfully"
+          else
+            echo "✗ Failed to send weekly report"
+            exit 1
+          fi
