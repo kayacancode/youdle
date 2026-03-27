@@ -29,8 +29,8 @@ AGE_SCORE_WEIGHT = 1.0
 
 # Limits
 MAX_TOTAL_ITEMS = 300
-MAX_RECALL_ITEMS = 25
-RECENT_WINDOW_DAYS = 14
+MAX_RECALL_ITEMS = 50
+RECENT_WINDOW_DAYS = 10
 PROCESSING_SOFT_LIMIT_SEC = 22
 
 # Exa-specific configuration
@@ -75,12 +75,9 @@ US_SHOPPERS_DOMAINS = [
     "grocerydive.com",
     "supermarketnews.com",
     "progressivegrocer.com",
-    # US grocery retailers
-    "instacart.com",
-    "walmart.com",
-    "target.com",
-    "kroger.com",
-    "costco.com",
+    # US consumer advocacy / personal finance
+    "consumerreports.org",
+    "nerdwallet.com",
     # US government/health
     "cdc.gov",
     "nih.gov",
@@ -173,17 +170,17 @@ SHOPPERS_QUERIES = [
         "subcategory": "grocery_retail",
         "exclude_domains": EXCLUDE_NON_US_DOMAINS,
     },
-    # 2. US Product and brand coverage
+    # 2. US grocery prices and consumer impact
     {
-        "query": "new US grocery product launch American food brands seasonal items limited time offering",
+        "query": "US grocery prices rising food inflation impact American consumers shrinkflation",
         "category": "SHOPPERS",
-        "subcategory": "products",
+        "subcategory": "prices",
         "exclude_domains": EXCLUDE_NON_US_DOMAINS,
     },
     {
-        "query": "American food product reformulation US grocery trends packaging changes",
+        "query": "food ingredient changes US labeling transparency hidden additives consumer health",
         "category": "SHOPPERS",
-        "subcategory": "products",
+        "subcategory": "health",
         "exclude_domains": EXCLUDE_NON_US_DOMAINS,
     },
     # 3. US Shopping advice and consumer guidance

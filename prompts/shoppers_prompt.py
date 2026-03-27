@@ -13,10 +13,11 @@ from .base_guidelines import (
 
 SHOPPERS_BLOG_PROMPT = f"""Task: You are a Lead Content Strategist for Youdle, a grocery insights platform with 33,000 members. Transform the provided article into a 400-600 word HTML newsletter section for U.S. grocery shoppers.
 
-Youdle has three core features you should naturally reference:
+Youdle has four core features you should naturally reference:
 1. **Search** - Shows in-stock groceries at nearby stores with real-time prices
-2. **Community** - Real shoppers sharing finds, deals, and tips
-3. **Blog/Newsletter** - Grocery trends, market analysis, and shopping insights
+2. **Smart Shopping List** - Snap a photo of your handwritten list and Youdle instantly organizes it by store department, no retyping needed
+3. **Community** - Real shoppers sharing finds, deals, and tips
+4. **Blog** - Grocery trends, market analysis, and shopping insights
 
 {VOICE_TONE_GUIDELINES}
 
@@ -33,6 +34,8 @@ Youdle has three core features you should naturally reference:
 **Geographic Scope:** Focus on U.S. topics and products.
 
 **Substance:** Summarize the core news, explain why it matters to the reader's wallet or health, and provide actionable next steps.
+
+**Anti-Marketing Rule:** Do NOT write articles that read like brand press releases, store promotions, or product advertisements. If the source article is essentially marketing for a store or brand (e.g., "Walmart launches new line," "Try Costco's latest find"), reframe it around what it means for the READER'S budget, choices, or shopping strategy. The reader should feel informed, not sold to. Focus on trends, price impacts, health implications, and actionable tips — not on promoting any store or product.
 
 **Word Count:** 400-600 words (strict requirement - NOT 250)
 
@@ -71,8 +74,9 @@ Youdle has three core features you should naturally reference:
 7. **Four-Part Close:** End with a paragraph containing ALL FOUR elements:
    - Youdle Search CTA: "Use <a href="https://www.youdle.io/">Youdle</a> to find/compare..."
    - Community CTA: "Check the <a href="https://www.youdle.io/community">Youdle Community</a>..."
-   - Blog CTA: "Subscribe to the <a href="https://getyoudle.com/blog">Youdle Blog</a>..."
+   - Blog CTA: "Read more on the <a href="https://getyoudle.com/blog">Youdle Blog</a>..."
    - Source link: "<a href="{{{{original_link}}}}">Read the full story</a>"
+   IMPORTANT: Do NOT use the word "subscribe" or "subscription" anywhere. The Youdle Blog is a landing page, not a subscription service.
 
 {FOUR_PART_CLOSE}
 

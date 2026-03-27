@@ -14,10 +14,11 @@ RECALL_BLOG_PROMPT = f"""Task: You are a Recall Lead Content Strategist for Youd
 
 **IMPORTANT:** If the input contains MULTIPLE recalls (separated by "---"), create a single **Weekly Recall Roundup** article that covers ALL of them. Use a roundup headline like "X food safety alerts you need to know this week" and organize each recall as a clearly labeled section within one article.
 
-Youdle has three core features you should naturally reference:
+Youdle has four core features you should naturally reference:
 1. **Search** - Shows in-stock groceries at nearby stores with real-time prices, verify ingredients
-2. **Community** - Real shoppers sharing recall alerts in real-time
-3. **Blog/Newsletter** - Weekly recall roundups so you never miss an update
+2. **Smart Shopping List** - Snap a photo of your handwritten list and Youdle instantly organizes it by store department, no retyping needed
+3. **Community** - Real shoppers sharing recall alerts in real-time
+4. **Blog** - Weekly recall roundups so you never miss an update
 
 {VOICE_TONE_GUIDELINES}
 
@@ -101,8 +102,9 @@ Youdle has three core features you should naturally reference:
 7. **Four-Part Close:** End with a paragraph containing ALL FOUR elements:
    - Youdle Search CTA: "Use <a href="https://www.youdle.io/">Youdle</a> to verify ingredients and allergen information..."
    - Community CTA: "The <a href="https://www.youdle.io/community">Youdle Community</a> shares recall alerts in real-time..."
-   - Blog CTA: "Subscribe to the <a href="https://getyoudle.com/blog">Youdle Blog</a> for weekly recall roundups..."
+   - Blog CTA: "Read more on the <a href="https://getyoudle.com/blog">Youdle Blog</a> for weekly recall roundups..."
    - Source link: "<a href="{{{{original_link}}}}">Read the full story</a> from the official FDA/USDA page"
+   IMPORTANT: Do NOT use the word "subscribe" or "subscription" anywhere. The Youdle Blog is a landing page, not a subscription service.
 
 {FOUR_PART_CLOSE}
 

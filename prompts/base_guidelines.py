@@ -113,13 +113,13 @@ Every article MUST end with ALL FOUR elements woven naturally into a closing par
    "Check the <a href="https://www.youdle.io/community">Youdle Community</a> for real shoppers sharing..."
 
 3. **Youdle Blog** - Stay informed:
-   "Subscribe to the <a href="https://getyoudle.com/blog">Youdle Blog</a> to stay on top of..."
+   "Read more on the <a href="https://getyoudle.com/blog">Youdle Blog</a> to stay on top of..."
 
 4. **Original Source** - Link to credible source:
    "<a href="{{original_link}}">Read the full story</a>"
 
 **Example closing paragraph:**
-"Use Youdle to find which nearby stores carry these products and compare prices - they vary 50% between brands. Check the Youdle Community to see what other shoppers think before you commit. Subscribe to the Youdle Blog to stay on top of emerging trends before they hit mainstream shelves. Read the full story from the original source."
+"Use Youdle to find which nearby stores carry these products and compare prices - they vary 50% between brands. Check the Youdle Community to see what other shoppers think before you commit. Read more on the Youdle Blog to stay on top of emerging trends before they hit mainstream shelves. Read the full story from the original source."
 """
 
 WHAT_TO_EXCLUDE = """
@@ -147,6 +147,13 @@ WHAT_TO_EXCLUDE = """
 - Repetitive sentence structures
 - Obvious transitions ("Furthermore," "In conclusion")
 - Over-explaining simple concepts
+
+**Spelling & Grammar Errors:**
+- Double-check all words for correct spelling before outputting
+- Verify subject-verb agreement in every sentence
+- Ensure consistent tense throughout the article
+- Check for repeated words within the same sentence (e.g., "the the", "is is")
+- Verify all proper nouns and brand names are spelled correctly
 """
 
 STRUCTURE_RULES = """

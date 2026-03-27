@@ -56,9 +56,9 @@ class ReflectionAgent:
             "description": "Must include Youdle Community link",
             "flags": re.IGNORECASE | re.DOTALL
         },
-        "blog_subscription_link": {
+        "blog_link": {
             "pattern": r'<a[^>]+href=["\']https?://getyoudle\.com/blog["\'][^>]*>',
-            "description": "Must include Youdle Blog subscription link"
+            "description": "Must include Youdle Blog link"
         }
     }
     
@@ -66,9 +66,31 @@ class ReflectionAgent:
     TARGET_WORD_COUNT = 500  # Center of 400-600 range
     WORD_COUNT_TOLERANCE = 100  # ±100 words allows 400-600
     
+    # Words to never flag as misspelled (brands, proper nouns, abbreviations)
+    PRESERVE_WORDS = {
+        'youdle', 'getyoudle', 'kroger', 'walmart', 'target', 'costco', 'aldi',
+        'publix', 'safeway', 'albertsons', 'wegmans', 'heb', 'meijer', 'trader',
+        'instacart', 'doordash', 'grubhub', 'shipt', 'gopuff', 'memphis', 'tenn',
+        'fda', 'usda', 'cdc', 'epa', 'snap', 'wic', 'gmo', 'upc', 'upcs',
+        'cta', 'html', 'href', 'src', 'alt', 'img', 'div', 'prebiotic',
+        'prebiotics', 'probiotic', 'probiotics', 'listeria', 'salmonella',
+        'e.coli', 'roundup', 'reformulating', 'reformulated',
+    }
+
     def __init__(self):
         """Initialize the reflection agent."""
-        pass
+        self._spell = None
+
+    def _get_spellchecker(self):
+        """Lazy-load the spellchecker."""
+        if self._spell is None:
+            try:
+                from spellchecker import SpellChecker
+                self._spell = SpellChecker()
+                self._spell.word_frequency.load_words(self.PRESERVE_WORDS)
+            except ImportError:
+                self._spell = False  # Sentinel: not available
+        return self._spell if self._spell is not False else None
     
     def validate_structure(self, html_content: str) -> Dict[str, Any]:
         """
@@ -194,9 +216,58 @@ class ReflectionAgent:
             img_tag = img_match.group()
             if 'alt=' not in img_tag:
                 issues.append("Image tag missing alt attribute")
-        
+
+        # Check for duplicate headline text in body (Issue: headline appearing twice)
+        h2_match = re.search(r'<h2[^>]*>(.*?)</h2>', html_content, re.DOTALL)
+        if h2_match:
+            headline_text = re.sub(r'<[^>]+>', '', h2_match.group(1)).strip().lower()
+            # Remove the h2 tag from content and check if headline text appears again
+            content_without_h2 = html_content[:h2_match.start()] + html_content[h2_match.end():]
+            # Strip HTML tags from remaining content for text comparison
+            body_text = re.sub(r'<[^>]+>', ' ', content_without_h2).lower()
+            if headline_text and len(headline_text) > 10 and headline_text in body_text:
+                issues.append("Headline text is repeated in the article body")
+
+        # Check for forbidden "subscribe" / "subscription" language
+        if re.search(r'\bsubscri(be|ption|bing)\b', html_content, re.IGNORECASE):
+            issues.append("Contains 'subscribe/subscription' — Youdle Blog is a landing page, not a subscription")
+
         return issues
     
+    def check_spelling(self, html_content: str) -> List[str]:
+        """
+        Check spelling in the text content of an HTML blog post.
+
+        Args:
+            html_content: Generated HTML blog post
+
+        Returns:
+            List of spelling issue descriptions
+        """
+        spell = self._get_spellchecker()
+        if spell is None:
+            return []
+
+        # Strip HTML tags to get text content
+        text = re.sub(r'<[^>]+>', ' ', html_content)
+        # Remove URLs
+        text = re.sub(r'https?://\S+', ' ', text)
+        # Extract words (letters and apostrophes only)
+        words = re.findall(r"[a-zA-Z']+", text)
+
+        issues = []
+        for word in words:
+            lower = word.lower()
+            # Skip short words, preserve words, and all-caps abbreviations
+            if len(lower) <= 2 or lower in self.PRESERVE_WORDS or word.isupper():
+                continue
+            if lower not in spell:
+                correction = spell.correction(lower)
+                if correction and correction != lower:
+                    issues.append(f"'{word}' → '{correction}'")
+
+        return issues
+
     def reflect(
         self,
         html_content: str,
@@ -220,33 +291,42 @@ class ReflectionAgent:
         
         # Check common mistakes
         common_mistakes = self.check_common_mistakes(html_content, bad_examples)
-        
+
+        # Check spelling
+        spelling_issues = self.check_spelling(html_content)
+
         # Compile issues and suggestions
         issues = []
         suggestions = []
-        
+
         for failed in structure_result["failed"]:
             issues.append(failed["description"])
             suggestions.append(failed["suggestion"])
-        
+
         if not word_count_result["is_valid"]:
             issues.append(f"Word count issue: {word_count_result['word_count']} words")
             suggestions.append(word_count_result.get("suggestion", ""))
-        
+
         issues.extend(common_mistakes)
-        
+
+        if spelling_issues:
+            issues.append(f"Spelling errors found: {'; '.join(spelling_issues)}")
+            suggestions.append(f"Fix spelling: {'; '.join(spelling_issues)}")
+
         # Determine overall validity
         is_valid = (
-            structure_result["is_valid"] and 
-            word_count_result["is_valid"] and 
-            len(common_mistakes) == 0
+            structure_result["is_valid"] and
+            word_count_result["is_valid"] and
+            len(common_mistakes) == 0 and
+            len(spelling_issues) == 0
         )
-        
+
         return {
             "is_valid": is_valid,
             "structure": structure_result,
             "word_count": word_count_result,
             "common_mistakes": common_mistakes,
+            "spelling_issues": spelling_issues,
             "issues": issues,
             "suggestions": suggestions,
             "summary": self._create_summary(is_valid, issues)
@@ -281,7 +361,11 @@ class ReflectionAgent:
         ]
         if serious_mistakes:
             return True
-        
+
+        # Regenerate if there are spelling errors
+        if reflection_result.get("spelling_issues"):
+            return True
+
         return False
     
     def get_regeneration_hints(

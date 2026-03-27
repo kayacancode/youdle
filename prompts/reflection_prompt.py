@@ -16,13 +16,24 @@ REFLECTION_PROMPT = """Review this generated blog post and check for compliance 
 ## Four-Part Close Validation (ALL FOUR required)
 7. Youdle Search CTA: Must include link to youdle.io with product/search mention
 8. Youdle Community CTA: Must include link to youdle.io/community
-9. Blog subscription CTA: Must include link to getyoudle.com/blog
+9. Blog CTA: Must include link to getyoudle.com/blog (do NOT use the word "subscribe" or "subscription")
 10. Original source link: Must include "Read the full story" link to source
 
 ## Quality Validation
 11. Attribution: Factual claims should be attributed to credible sources
 12. No corporate language: No "innovative," "game-changing," "leverage," etc.
 13. Second-person voice: Uses "you" not "consumers" or "shoppers"
+14. No "subscribe"/"subscription" language anywhere — the Youdle Blog is a landing page
+15. Headline text must NOT be repeated in the article body
+16. Must NOT read like a brand press release or store promotion — focus on reader impact
+
+## Spelling & Grammar Validation
+17. Check for spelling errors in ALL text content (headlines, body, CTAs)
+18. Check for grammar mistakes (subject-verb agreement, tense consistency, missing articles)
+19. Check for repeated words or phrases within the same sentence
+20. Check for awkward AI-generated phrasing (e.g., "navigate the landscape of", "in the realm of")
+21. Verify proper nouns and brand names are spelled correctly (Youdle, Kroger, Walmart, etc.)
+22. Check for missing or extra punctuation
 
 Blog post to review:
 {blog_post}
@@ -37,6 +48,8 @@ Respond with a JSON object:
         "youdle_blog": true/false,
         "source_link": true/false
     }},
+    "spelling_errors": ["list of misspelled words with corrections, e.g. 'recieved → received'"],
+    "grammar_errors": ["list of grammar issues with corrections"],
     "issues": ["list of specific issues found"],
     "suggestions": ["how to fix each issue"]
 }}

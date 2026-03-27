@@ -76,6 +76,9 @@ class BlogPostState(TypedDict):
     # Upload results
     uploaded_urls: List[Dict[str, Any]]
     
+    # Proofread corrections (post_id → corrected HTML)
+    proofread_corrections: Dict[str, str]
+
     # Final assembled posts
     final_posts: List[Dict[str, Any]]
     
@@ -204,19 +207,36 @@ def select_articles_node(state: BlogPostState) -> Dict[str, Any]:
     processed_urls = state.get("processed_urls", {})
     batch_size = state.get("batch_size", 6)
 
-    # Calculate article allocation: up to 5 recall articles consolidated into 1 roundup + rest shoppers
-    # Recall articles are gathered but will be merged into a single roundup post during generation
-    max_recall = min(5, batch_size) if batch_size > 0 else 0
+    # Calculate article allocation: recall articles consolidated into 1 roundup + rest shoppers
+    # Gather ALL available recall articles for a comprehensive weekly roundup
+    max_recall = min(25, len(search_results.get("recall_items", []))) if batch_size > 0 else 0
     max_shoppers = max(0, batch_size - 1) if max_recall > 0 else batch_size  # reserve 1 slot for roundup
 
     items = search_results.get("items", [])
     recall_items = search_results.get("recall_items", [])
 
-    # Filter out already cached articles
+    # Cross-run dedup: check Supabase blog_posts for URLs used in the last 60 days
+    recently_used_urls = set()
+    try:
+        supabase = get_supabase_client()
+        from datetime import timedelta
+        cutoff = (datetime.now() - timedelta(days=60)).isoformat()
+        recent_posts = supabase.table("blog_posts").select("source_url").gte("created_at", cutoff).execute()
+        for row in (recent_posts.data or []):
+            if row.get("source_url"):
+                recently_used_urls.add(row["source_url"])
+        logs.append(f"Cross-run dedup: {len(recently_used_urls)} URLs from last 60 days")
+    except Exception as e:
+        logs.append(f"Cross-run dedup check failed (continuing): {str(e)}")
+
+    # Filter out already cached articles (session) AND recently used articles (cross-run)
     today = datetime.now().strftime("%Y-%m-%d")
 
     def is_not_cached(item):
         url = item.get("link", "")
+        # Cross-run check: skip if URL was used in last 60 days (shoppers only, not recalls)
+        if item.get("category", "").upper() != "RECALL" and url in recently_used_urls:
+            return False
         url_hash = get_url_hash(url)
         cached = processed_urls.get(url_hash, {})
         return cached.get("date") != today if isinstance(cached, dict) else True
@@ -348,14 +368,22 @@ def generate_posts_node(state: BlogPostState) -> Dict[str, Any]:
         # Generate individual shoppers posts
         for article in shoppers_articles_to_process:
             context = shoppers_context
-            
+
+            # Inject prompt_additions from feedback into bad_examples so the LLM sees them
+            effective_bad_examples = list(context.get("bad_examples") or [])
+            if context.get("prompt_additions"):
+                effective_bad_examples.insert(0,
+                    f"<!-- CRITICAL FEEDBACK FROM REVIEWS — follow these rules:\n"
+                    f"{context['prompt_additions']}\n-->"
+                )
+
             result = generator.generate_with_reflection(
                 title=article.get("title", ""),
                 content=article.get("content", article.get("description", "")),
                 original_link=article.get("link", ""),
                 category="shoppers",
                 good_examples=context.get("good_examples"),
-                bad_examples=context.get("bad_examples")
+                bad_examples=effective_bad_examples
             )
             
             result["article"] = article
@@ -397,13 +425,21 @@ def generate_posts_node(state: BlogPostState) -> Dict[str, Any]:
                 "source_articles": recall_articles_to_process,
             }
             
+            # Inject prompt_additions from feedback into bad_examples so the LLM sees them
+            effective_recall_bad = list(recall_context.get("bad_examples") or [])
+            if recall_context.get("prompt_additions"):
+                effective_recall_bad.insert(0,
+                    f"<!-- CRITICAL FEEDBACK FROM REVIEWS — follow these rules:\n"
+                    f"{recall_context['prompt_additions']}\n-->"
+                )
+
             result = generator.generate_with_reflection(
                 title=combined_title,
                 content=combined_content,
                 original_link=primary_link,
                 category="recall",
                 good_examples=recall_context.get("good_examples"),
-                bad_examples=recall_context.get("bad_examples")
+                bad_examples=effective_recall_bad
             )
             
             result["article"] = merged_article
@@ -519,6 +555,90 @@ def increment_regeneration_node(state: BlogPostState) -> Dict[str, Any]:
         "regeneration_count": state.get("regeneration_count", 0) + 1,
         "logs": [f"[{datetime.now().isoformat()}] Regeneration attempt {state.get('regeneration_count', 0) + 1}"]
     }
+
+
+PROOFREAD_PROMPT = """You are a professional copy editor. Proofread the following HTML blog post and fix ONLY:
+- Spelling errors
+- Grammar mistakes (subject-verb agreement, tense consistency, missing articles)
+- Repeated words within the same sentence
+- Missing or incorrect punctuation
+- Awkward phrasing that sounds AI-generated
+
+Do NOT change:
+- The HTML structure or tags
+- The meaning or tone of the content
+- Proper nouns, brand names, or URLs
+- The four-part close section links
+
+Return ONLY the corrected HTML with no explanation. If there are no errors, return the original HTML unchanged."""
+
+
+def proofread_posts_node(state: BlogPostState) -> Dict[str, Any]:
+    """
+    Node: Run a final proofreading pass on all generated posts to fix typos and grammar.
+    Uses the LLM as a copy editor before image generation.
+    """
+    logs = [f"[{datetime.now().isoformat()}] Proofreading posts for typos and grammar..."]
+
+    generated_posts = state.get("generated_posts", [])
+
+    if not generated_posts:
+        return {"proofread_corrections": {}, "logs": logs + ["No posts to proofread"]}
+
+    try:
+        from langchain_openai import ChatOpenAI
+        from langchain_core.prompts import ChatPromptTemplate
+        from langchain_core.output_parsers import StrOutputParser
+
+        model = state.get("model", "gpt-4")
+        llm = ChatOpenAI(
+            model=model,
+            temperature=0,  # Deterministic for proofreading
+            api_key=os.getenv("OPENAI_API_KEY")
+        )
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", PROOFREAD_PROMPT),
+            ("human", "{blog_post}")
+        ])
+        chain = prompt | llm | StrOutputParser()
+
+        corrections = {}
+        fixes_count = 0
+
+        for post in generated_posts:
+            blog_post = post.get("blog_post", "")
+            post_id = post.get("post_id", "")
+            if not blog_post or not post_id:
+                continue
+
+            try:
+                corrected = chain.invoke({"blog_post": blog_post})
+
+                # Only accept correction if it preserves the HTML structure
+                if corrected.strip().startswith("<div") and corrected.strip().endswith("</div>"):
+                    if corrected.strip() != blog_post.strip():
+                        fixes_count += 1
+                        corrections[post_id] = corrected
+                        logs.append(f"  ✓ Fixed typos in: {post.get('article', {}).get('title', 'Unknown')[:50]}")
+                else:
+                    logs.append(f"  ⚠ Proofread output invalid for: {post.get('article', {}).get('title', 'Unknown')[:50]}, keeping original")
+            except Exception as e:
+                logs.append(f"  ⚠ Proofread failed for post: {str(e)[:80]}, keeping original")
+
+        logs.append(f"Proofreading complete: {fixes_count} post(s) corrected out of {len(generated_posts)}")
+
+        return {
+            "proofread_corrections": corrections,
+            "logs": logs
+        }
+
+    except Exception as e:
+        logs.append(f"Proofreading error (continuing with originals): {str(e)}")
+        return {
+            "proofread_corrections": {},
+            "logs": logs
+        }
 
 
 def generate_images_node(state: BlogPostState) -> Dict[str, Any]:
@@ -659,6 +779,7 @@ def assemble_html_node(state: BlogPostState) -> Dict[str, Any]:
 
     generated_posts = state.get("generated_posts", [])
     uploaded_urls = state.get("uploaded_urls", [])
+    proofread_corrections = state.get("proofread_corrections", {})
 
     # Create URL lookup
     url_lookup = {u["post_id"]: u["url"] for u in uploaded_urls}
@@ -674,11 +795,14 @@ def assemble_html_node(state: BlogPostState) -> Dict[str, Any]:
         posts_by_id[post_id] = post
 
     logs.append(f"Deduplicated {len(generated_posts)} posts down to {len(posts_by_id)} unique posts")
+    if proofread_corrections:
+        logs.append(f"Applying {len(proofread_corrections)} proofread correction(s)")
 
     final_posts = []
 
     for post_id, post in posts_by_id.items():
-        blog_post = post.get("blog_post", "")
+        # Use proofread version if available, otherwise original
+        blog_post = proofread_corrections.get(post_id, post.get("blog_post", ""))
         article = post.get("article", {})
         original_link = article.get("link", "")
 
@@ -901,6 +1025,7 @@ def create_blog_post_graph() -> StateGraph:
     workflow.add_node("generate_posts", generate_posts_node)
     workflow.add_node("reflect_posts", reflect_posts_node)
     workflow.add_node("increment_regeneration", increment_regeneration_node)
+    workflow.add_node("proofread_posts", proofread_posts_node)
     workflow.add_node("generate_images", generate_images_node)
     workflow.add_node("upload_images", upload_images_node)
     workflow.add_node("assemble_html", assemble_html_node)
@@ -920,9 +1045,12 @@ def create_blog_post_graph() -> StateGraph:
         should_regenerate,
         {
             "regenerate": "increment_regeneration",
-            "continue": "generate_images"
+            "continue": "proofread_posts"
         }
     )
+
+    # Proofread → image generation
+    workflow.add_edge("proofread_posts", "generate_images")
     
     # Regeneration loop
     workflow.add_edge("increment_regeneration", "generate_posts")
